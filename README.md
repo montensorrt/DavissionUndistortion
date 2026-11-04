@@ -4,12 +4,12 @@
 > 改本仓库不会回流。目录规则见 [`UPLOAD_RULES.md`](UPLOAD_RULES.md)。
 >
 > **当前分支 `main` = GPU 版本**：用 **NVIDIA TensorRT 10.14 + CUDA 12.8** 在 GPU 上做去畸变，
-> 单帧 ≈ **4.94 ms**（vs CPU 63.82 ms，**12.9×**）。CPU 版本在另一个工程
-> `undistortion_standaloneV0`，**不在**本仓库。
+> 单帧 ≈ **4.94 ms**（vs CPU 63.82 ms，**12.9×**）。CPU 版本（`undistortion_standaloneV0`，AVX2+FMA，**63.82 ms**）在同一仓库的 **`cpu-v0` 分支**
+> （标签 `26452`），见 <https://github.com/montensorrt/DavissionUndistortion/tree/cpu-v0>。
 
 | 项 | 值 |
 |---|---|
-| 分支 | `main`（GPU 版本） |
+| 分支 | `main`（GPU 版本）· `cpu-v0`（CPU 版本） |
 | 标签 | `26453`（附注标签） |
 | 业务文件 | **50** 个（仓库文件共 **52** 个）/ 约 **1.9 MB** |
 | 交付物 | `undist_api.dll`（C ABI，88 KB）+ `Undistortion.Inference.dll`（.NET 8 类库）+ Test/Tools 两个可执行程序 |
