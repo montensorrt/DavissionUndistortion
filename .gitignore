@@ -1,0 +1,60 @@
+# ===================================================================
+# Algorithms/undistortion —— 上传规则（本 .gitignore 相对项目根生效）
+#
+# 入库：源码（trt/src、csharp/*.cs）、脚本（scripts/）、文档与数据（document/）、
+#       需求（prompt/）、README、.gitignore、
+#       以及 csharp/thirdpart/undist_api.dll（交付快照，客户端不编译也能跑）。
+# 不入库：构建产物、引擎缓存、运行输出、大图预览、凭据。
+#         这些都能由 scripts 一键重建，或本就不该进仓库。
+#
+# 注意：项目没有配置文件（初始化参数是 C# 结构体，见 README），
+#       所以这里也没有任何 config/ 规则。
+# ===================================================================
+
+# ---------------- 原生构建产物 ----------------
+trt/build/
+trt/build-*/
+trt/out/
+
+# ---------------- .NET 构建产物 ----------------
+csharp/**/bin/
+csharp/**/obj/
+csharp/**/output/
+csharp/.vs/
+*.suo
+*.user
+*.DotSettings.user
+
+# ---------------- 交付快照 / 打包目录（由 scripts 生成，不入库） ----------------
+csharp/dist/
+
+# ---------------- 交付快照里唯一要入库的二进制 ----------------
+# （显式否定，防止将来加“*.dll”之类规则把它一起带走）
+!csharp/thirdpart/*.dll
+
+# ---------------- 引擎缓存（可重建；绑定 GPU 架构 + TensorRT 版本） ----------------
+trt/build/cache/
+**/*.engine
+
+# ---------------- 运行期产物 / 预览图 ----------------
+document/data/preview/
+document/data/*.bmp
+**/*.tmp
+*.log
+
+# ---------------- Python 工具 ----------------
+__pycache__/
+*.pyc
+
+# ---------------- 凭据 / 令牌（严禁上传与保留） ----------------
+*access-token*
+*access_token*
+*secret*
+.env
+.env.*
+
+# ---------------- IDE / 系统 ----------------
+.vs/
+.idea/
+.DS_Store
+Thumbs.db

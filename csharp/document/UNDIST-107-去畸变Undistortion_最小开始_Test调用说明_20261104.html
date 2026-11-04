@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>去畸变 Undistortion.Test —— 最小开始：配置参数 / 初始化 / 调用 / 释放</title>
+<style>
+  :root{
+    --ink:#16202b; --ink2:#43535f; --line:#dde4ec; --bg:#f5f8fb; --card:#fff;
+    --accent:#0f7b6c; --accent2:#0a5c50; --blue:#1f6feb; --blue2:#0b4ea2;
+    --ok:#177f4b; --warn:#b45309; --bad:#b91c1c;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+       line-height:1.72;font-size:15px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px 96px}
+  header.hero{background:linear-gradient(135deg,#062f28 0%,#0d5145 52%,#0f7b6c 100%);
+       color:#fff;padding:48px 28px 40px;margin-bottom:30px}
+  header.hero .inner{max-width:1080px;margin:0 auto}
+  header.hero h1{margin:0 0 10px;font-size:30px;letter-spacing:.4px;font-weight:700}
+  header.hero .sub{opacity:.93;font-size:15.5px;max-width:900px}
+  header.hero .tags{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
+  header.hero .tag{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+       padding:4px 11px;border-radius:999px;font-size:12.5px}
+  h2{margin:46px 0 14px;font-size:22px;padding-bottom:9px;border-bottom:2px solid var(--accent);
+     color:var(--accent2)}
+  h3{margin:30px 0 10px;font-size:17px}
+  h4{margin:20px 0 8px;font-size:15px;color:var(--ink2)}
+  code{font-family:var(--mono);background:#eaf1f6;padding:1.5px 5px;border-radius:4px;
+       font-size:13px;color:#0a5c50}
+  pre{background:#0d1a20;color:#d8e8e4;padding:16px 18px;border-radius:8px;overflow-x:auto;
+      font-family:var(--mono);font-size:12.7px;line-height:1.62;border:1px solid #1b3038}
+  pre .c{color:#78968f}
+  pre .k{color:#6fc9b8}
+  pre .s{color:#a5d6a7}
+  pre .h{color:#f0b862}
+  table{border-collapse:collapse;width:100%;margin:16px 0;background:var(--card);
+        border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:13.6px}
+  th,td{padding:8px 11px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#e9f2f0;font-weight:600;color:#123f39;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(even){background:#fbfdfc}
+  td.num,th.num{text-align:right;font-family:var(--mono);font-size:12.9px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+        padding:18px 22px;margin:18px 0;box-shadow:0 1px 2px rgba(16,32,56,.04)}
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:6px 16px;font-size:14px}
+  .kv dt{color:var(--ink2);font-weight:600}
+  .kv dd{margin:0}
+  .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600}
+  .b-ok{background:#e0f4ee;color:var(--ok);border:1px solid #b4e0d4}
+  .b-warn{background:#fdf1e0;color:var(--warn);border:1px solid #f3d3a3}
+  .b-bad{background:#fdecec;color:var(--bad);border:1px solid #f5c1c1}
+  .b-info{background:#e8f0fd;color:var(--blue2);border:1px solid #c2d9fb}
+  .note{border-left:4px solid var(--accent);background:#eef8f5;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .warnbox{border-left:4px solid var(--warn);background:#fff8ee;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .badbox{border-left:4px solid var(--bad);background:#fff3f3;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .bluebox{border-left:4px solid var(--blue);background:#f0f6ff;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:10px;
+       padding:16px 26px;margin:24px 0}
+  .toc ol{margin:6px 0 0;padding-left:20px}
+  .toc a{color:var(--accent2);text-decoration:none}
+  .toc > ol > li{margin:4px 0;font-weight:600}
+  .small{font-size:12.8px;color:var(--ink2)}
+  hr{border:none;border-top:1px dashed var(--line);margin:32px 0}
+  .flow{background:#0d1a20;color:#d8e8e4;border-radius:8px;padding:18px 20px;overflow-x:auto;
+        font-family:var(--mono);font-size:12.4px;line-height:1.7}
+  .flow .b{color:#6fc9b8}
+  .flow .n{color:#f0b862}
+  .flow .g{color:#8fb8b0}
+  .flow .r{color:#f08a8a}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="inner">
+    <h1>Undistortion.Test —— 最小开始</h1>
+    <div class="sub">
+      只讲四件事：<b>配置参数</b>、<b>初始化对象</b>、<b>调用</b>、<b>释放</b>。
+      看完能把这张图跑出去，就说明依赖、路径、显存都对。
+      整个程序 <b>85 行</b>，没有任何配置文件。
+    </div>
+    <div class="tags">
+      <span class="tag">一条调用链：读图 → 结构体 → 初始化 → 执行 → 释放</span>
+      <span class="tag">参数：只要 --image（矩阵默认 &lt;exe&gt;\\botong25）</span>
+      <span class="tag">init ≈8.5 s · 单帧 ≈5 ms</span>
+      <span class="tag">版本 1.0 / 2026-11-04</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="toc">
+  <b>目录</b>
+  <ol>
+    <li><a href="#s1">跑之前：三件事就位</a></li>
+    <li><a href="#s2">配置参数（只有两个必填）</a></li>
+    <li><a href="#s3">调用顺序总览</a></li>
+    <li><a href="#s4">四段逻辑逐段看</a></li>
+    <li><a href="#s5">关键代码与文件</a></li>
+    <li><a href="#s6">运行与预期输出</a></li>
+    <li><a href="#s7">只列会踩的四个错误</a></li>
+    <li><a href="#s8">从 Test 到上位机：只差一步</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s1">1. 跑之前：三件事就位</h2>
+
+<table>
+  <thead><tr><th>类别</th><th>要准备什么</th><th>怎么准备</th></tr></thead>
+  <tbody>
+    <tr><td>① 系统安装</td>
+        <td>TensorRT 10.14.1.48、CUDA 12.8、VC++ 2015-2022 x64 运行时</td>
+        <td>官方安装包 → 把两个 <code>bin</code> 加进 <code>PATH</code>（<code>scripts\_env.ps1</code> 已封装）</td></tr>
+    <tr><td>② NuGet</td><td>OpenCvSharp4 4.13.0.20260627</td>
+        <td>已写在类库 csproj 里，<code>dotnet build</code> 自动还原</td></tr>
+    <tr><td>③ 原生库</td><td><code>undist_api.dll</code>（88 KB）</td>
+        <td>已在 <code>csharp/thirdpart/</code>，构建时自动拷到输出目录，不用手工放</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <b>不需要 cuDNN、不需要 cuBLAS</b>：本网络只有 Gather / ElementWise / Cast / Constant /
+  Concat / CLIP / FLOOR，没有卷积也没有 RNN（见 UNDIST-106 §3.2.1 的隔离实测）。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s2">2. 配置参数（只有 --image 必填）</h2>
+
+<p>Test 是命令行程序，参数只有 4 个，全部来自命令行 —— <b>没有 JSON、没有环境变量、没有配置文件</b>：</p>
+
+<table>
+  <thead><tr><th>参数</th><th>必填</th><th>含义</th><th>默认值</th></tr></thead>
+  <tbody>
+    <tr><td><code>--image &lt;文件&gt;</code></td><td><span class="badge b-bad">必填</span></td>
+        <td>待去畸变的图像（单通道灰度，如 <code>PIC_1_1.bmp</code>）</td><td>—</td></tr>
+    <tr><td><code>--matrix &lt;目录&gt;</code></td><td><span class="badge b-info">可选</span></td>
+        <td>去畸变矩阵目录，内含 <code>U_1..U_4 / V_1..V_4 / A1..A4</code> 共 12 个 <code>.bin</code>；
+            <b>可用相对名（如 <code>botong25</code>），按 exe 所在目录解析</b></td>
+        <td><code>&lt;exe目录&gt;\\botong25</code></td></tr>
+    <tr><td><code>--device &lt;N&gt;</code></td><td><span class="badge b-info">可选</span></td>
+        <td>CUDA 设备号</td><td><code>0</code></td></tr>
+    <tr><td><code>--out &lt;文件&gt;</code></td><td><span class="badge b-info">可选</span></td>
+        <td>输出 BMP 路径</td><td><code>output\&lt;同名&gt;.bmp</code></td></tr>
+  </tbody>
+</table>
+
+<div class="bluebox">
+  <b>为什么没有 <code>--width</code> / <code>--height</code>？</b>
+  尺寸本来就由图像决定（矩阵也必须同尺寸）。Test 直接取 <code>src.Width</code> / <code>src.Height</code> 填进结构体，
+  少两个参数、也就少一种“抄错尺寸”的错。尺寸真的不匹配时，原生会返回
+  <code>MatrixSize(-7)</code>，不会算错。
+</div>
+
+<p>另外这些<b>不可配</b>（交付层固定，见 UNDIST-105 §6.6 / §6.7）：</p>
+
+<table>
+  <thead><tr><th>项</th><th>固定值</th><th>原因</th></tr></thead>
+  <tbody>
+    <tr><td>日志级别</td><td><code>0</code>（关）</td><td>只服务离线调用，上位机不启用</td></tr>
+    <tr><td>引擎缓存</td><td><code>null</code>（每次构建）</td><td>上位机启动一次、长期运行，6.7 s 一次性成本可接受</td></tr>
+    <tr><td>通道数 / 搬运模式</td><td><code>1</code> / 库内页锁暂存</td><td>只支持单通道；页锁不足自动回退</td></tr>
+  </tbody>
+</table>
+
+<h3>2.1 矩阵放哪（三种做法，按需选一种）</h3>
+
+<p>
+  矩阵是 <b>12 个 80 MB 的 <code>.bin</code>，合计 960 MB</b>。它属于“部署数据”，不随 git 走、也不该塞进
+  <code>bin\</code> 当唯一副本（<code>bin</code> 被 gitignore，<code>dotnet clean</code> 会连它一起删）。
+  推荐把 <code>botong25</code> 放在 <b>exe 同级目录</b>，程序默认就找这里：
+</p>
+
+<table>
+  <thead><tr><th>做法</th><th>命令 / 操作</th><th>适用</th></tr></thead>
+  <tbody>
+    <tr><td><b>A. 开发期：目录联接</b>（不复制 960 MB）</td>
+        <td><code>powershell -File scripts\link_matrix.ps1</code><br>
+            <span class="small">在 <code>csharp\Undistortion.Test\bin\Release\net8.0\botong25</code>
+            建 junction 指向 <code>undistortion_standaloneV0\botong25</code></span></td>
+        <td>本机联调，改矩阵立刻生效</td></tr>
+    <tr><td><b>B. 部署：真实拷贝</b></td>
+        <td>把 <code>botong25</code> 整个目录拷到目标 exe 同级</td>
+        <td>上位机 / 产线装机（安装包负责）</td></tr>
+    <tr><td><b>C. 指到别处：<code>--matrix</code></b></td>
+        <td><code>--matrix D:\opt\undistortion\botong25</code>（绝对路径最稳）</td>
+        <td>矩阵装在公共目录、多程序共用</td></tr>
+  </tbody>
+</table>
+
+<div class="warnbox">
+  <b>相对路径的坑（已实测）：</b>如果不做处理，<code>--matrix botong25</code> 会被当成
+  <b>“当前工作目录”</b>下的 <code>botong25</code> —— 从资源管理器双击时刚好对，一旦用快捷方式、
+  计划任务、服务、或别处 <code>cd</code> 后启动，就变成
+  <code>DirectoryNotFoundException: 矩阵目录不存在: botong25</code>。<br>
+  所以本程序对 <code>--matrix</code> 的<b>相对路径一律按 exe 所在目录解析</b>（<code>AppContext.BaseDirectory</code>），
+  与 CWD 无关；省略时默认也是 <code>&lt;exe&gt;\botong25</code>。
+</div>
+
+<div class="note">
+  <b>为什么不把矩阵搬进 <code>bin\Release\net8.0</code> 当“源码默认值”？</b>
+  ① <code>csharp/**/bin/</code> 被 <code>.gitignore</code> 忽略，960 MB 不会进仓库，别人 clone 下来照样没有；
+  ② <code>dotnet clean</code> / 删 <code>bin</code> 会把数据一起删掉；
+  ③ <code>botong25</code> 还被 <code>undistortion_standaloneV0</code>（CPU 版）和 C++ 验收程序共用，
+  搬走会让它们找不到。→ 所以她留在原地，<b>由部署/联接派生到 exe 旁</b>。
+</div>
+
+
+<!-- ============================================================ -->
+<h2 id="s3">3. 调用顺序总览</h2>
+
+<div class="flow">
+<span class="b">① 读图</span>            <span class="n">Cv2.ImRead(path, Grayscale)</span>   <span class="g">// 失败 → src.Empty() → 退出码 3</span>
+     │                  <span class="g">尺寸 = src.Width × src.Height（后续全部用它）</span>
+     ▼
+<span class="b">② 配置参数</span>       <span class="n">new UndistortionConfig { MatrixDir, Width, Height, DeviceId }</span>
+     │                  <span class="g">栈上值类型，4 个字段，构造后不可改</span>
+     ▼
+<span class="b">③ 初始化对象</span>     <span class="n">new Undistorter(config)</span>        <span class="r">≈8.5 s（表 1.4 s + 引擎构建 6.7 s）</span>
+     │                  <span class="g">12 个 .bin → 240 MB 表 → 上显存（280 MB）→ 页锁暂存</span>
+     ▼
+<span class="b">④ 调用</span>           <span class="n">undistorter.Process(src)</span>       <span class="g">// 返回新的 Mat（Mat 进 → Mat 出）</span>
+     │                  <span class="g">≈5 ms/帧；undistorter.LastTiming 可读分段耗时</span>
+     ▼
+<span class="b">⑤ 释放</span>           <span class="n">using</span> 作用域结束 → <span class="n">Dispose()</span> → <span class="n">undist_release</span>
+                       <span class="g">幂等；终结器兜底</span>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s4">4. 四段逻辑逐段看</h2>
+
+<h3>4.1 加载图像（同时确定尺寸）</h3>
+
+<pre><span class="c">// 1) 加载指定图像</span>
+<span class="k">using</span> Mat src = Cv2.ImRead(imagePath, ImreadModes.Grayscale);
+<span class="k">if</span> (src.Empty())
+{
+    Console.Error.WriteLine(<span class="s">$"读图失败: {imagePath}"</span>);
+    <span class="k">return</span> 3;
+}</pre>
+
+<div class="kv">
+  <dt>要点 1</dt><dd><code>ImreadModes.Grayscale</code> 强制单通道 —— 库只支持 <code>CV_8UC1</code>。</dd>
+  <dt>要点 2</dt><dd><code>src.Width/Height</code> 就是后面要传给初始化的尺寸，<b>不要另写 5120×4096</b>。</dd>
+  <dt>要点 3</dt><dd><code>using</code> 管住这个 <code>Mat</code>，函数返回时自动 Dispose。</dd>
+</div>
+
+<h3>4.2 配置参数：构造结构体</h3>
+
+<pre><span class="c">// 2) 初始化参数（结构体就是全部配置）</span>
+<span class="k">var</span> config = <span class="k">new</span> UndistortionConfig
+{
+    MatrixDir = matrixDir,                 <span class="c">// 已解析成绝对路径（默认 &lt;exe&gt;\botong25）</span>
+    Width     = src.Width,                 <span class="c">// 尺寸取自图像</span>
+    Height    = src.Height,
+    DeviceId  = int.TryParse(Arg(args, <span class="s">"--device"</span>) ?? <span class="s">"0"</span>, <span class="k">out int</span> device) ? device : 0,
+};</pre>
+
+<p><code>matrixDir</code> 在构造结构体之前就已经解析好（相对名按 exe 目录）：</p>
+
+<pre><span class="c">// 相对路径按 exe 目录解析（而不是进程的当前工作目录）</span>
+<span class="k">static string</span> ResolveFromExeDir(<span class="k">string</span> path) =&gt;
+    Path.IsPathRooted(path)
+        ? Path.GetFullPath(path)
+        : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, path));
+
+<span class="c">// 默认矩阵位置：exe 同级 botong25</span>
+<span class="k">string</span> matrixDir = ResolveFromExeDir(Arg(args, <span class="s">"--matrix"</span>) ?? <span class="s">"botong25"</span>);</pre>
+
+<table>
+  <thead><tr><th>字段</th><th>类型</th><th>必填</th><th>GUI</th><th>这里怎么来的</th><th>约束</th></tr></thead>
+  <tbody>
+    <tr><td><code>MatrixDir</code></td><td>string</td>
+        <td><span class="badge b-bad">必填</span></td>
+        <td><span class="badge b-ok">必须开放</span><br><span class="small">目录选择</span></td>
+        <td><code>--matrix</code>（默认 <code>&lt;exe&gt;\botong25</code>）</td>
+        <td>目录必须存在，且含 12 个 <code>.bin</code></td></tr>
+    <tr><td><code>Width</code></td><td>int</td>
+        <td><span class="badge b-bad">必填</span></td>
+        <td><span class="badge b-info">只读展示</span><br><span class="small">随相机/图像带出</span></td>
+        <td><code>src.Width</code></td><td>必须与矩阵尺寸一致</td></tr>
+    <tr><td><code>Height</code></td><td>int</td>
+        <td><span class="badge b-bad">必填</span></td>
+        <td><span class="badge b-info">只读展示</span></td>
+        <td><code>src.Height</code></td><td>必须与矩阵尺寸一致</td></tr>
+    <tr><td><code>DeviceId</code></td><td>int</td>
+        <td><span class="badge b-info">可选</span><br><span class="small">默认 0</span></td>
+        <td><span class="badge b-ok">必须开放</span><br><span class="small">多卡选卡</span></td>
+        <td><code>--device</code></td><td>≥ 0；越界由原生 <code>InitFailed</code> 兜底</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <b>这张表以结构体的 XML 注释为准</b>：<code>UndistortionConfig.cs</code> 里每个字段都写了
+  「必填 / GUI 处理 / 取值 / 校验」四行说明，Visual Studio 的 IntelliSense 直接可见。
+  结构体还提供了两个静态数组，可直接用于生成界面：<code>UndistortionConfig.GuiEditableFields</code>（<code>MatrixDir</code> / <code>DeviceId</code>）与<br>
+  <code>GuiReadOnlyFields</code>（<code>Width</code> / <code>Height</code>）。<br>
+  上位机做配置界面时按这张表生成即可：<b>MatrixDir 必须可编辑、DeviceId 必须可编辑、
+  宽高只读展示</b>。
+</div>
+
+<p class="small">
+  <code>UndistortionConfig</code> 是 <b>readonly struct</b>：只在构造时能赋值，之后不可改
+  （改尺寸只能重建整个对象）。<code>Validate()</code> 在进原生之前会检查目录是否存在、宽高是否为正，所以
+  “参数写错”和“引擎起不来”是两种不同的错误。
+</p>
+
+<h3>4.3 初始化对象（最贵的一步）</h3>
+
+<pre><span class="c">// 3) 初始化 → 执行 → 4) 离开作用域释放</span>
+<span class="k">using var</span> undistorter = <span class="k">new</span> Undistorter(config);</pre>
+
+<div class="kv">
+  <dt>做什么</dt>
+  <dd>读 12 个矩阵 → 构建 <b>12 B/px 紧凑表</b>（240 MB）→ 构建 TensorRT 引擎（首次 6.7 s）→
+      表与 IO 缓冲上显存（<b>280 MB/实例</b>）→ 分配 2×20 MB 页锁暂存。</dd>
+  <dt>要多久</dt><dd><b>≈8.5 s</b>（表 1.4 s + 引擎 6.7 s，命中缓存才会快，但交付层固定不缓存）。</dd>
+  <dt>做几次</dt><dd><b>一个进程一次</b>。别每帧 new，也别每次请求 new。</dd>
+  <dt>失败会怎样</dt><dd>抛 <code>UndistortionException</code>（带原生错误码 + 错误串），或
+      <code>ArgumentException</code> / <code>DirectoryNotFoundException</code>（配置问题）。</dd>
+  <dt>能查什么</dt><dd><code>undistorter.Info</code>：尺寸、表与显存占用、GPU 名、TRT 版本、初始化耗时、是否回退 pageable。</dd>
+</div>
+
+<h3>4.4 调用：Mat 进 → Mat 出</h3>
+
+<pre><span class="k">using</span> Mat dst = undistorter.Process(src);</pre>
+
+<table>
+  <thead><tr><th>写法</th><th>行为</th><th>什么时候用</th></tr></thead>
+  <tbody>
+    <tr><td><code>Mat Process(Mat src)</code></td><td>内部新建输出 <code>Mat</code> 并返回（调用方 Dispose）</td>
+        <td>Test 这里；一次性/低频调用</td></tr>
+    <tr><td><code>void Process(Mat src, Mat dst)</code></td><td>写入你复用的 <code>dst</code></td>
+        <td>上位机高频路径：省掉每帧 20 MB 分配</td></tr>
+  </tbody>
+</table>
+
+<div class="warnbox">
+  <b>入参硬约束：</b><code>CV_8UC1</code>（单通道）、尺寸等于 <code>Width × Height</code>、连续内存。
+  非连续输入（ROI 视图）会内部临时 <code>Clone()</code> 一次；通道或尺寸不符直接
+  <code>ArgumentException</code>，不会偷偷算错。
+</div>
+
+<h3>4.5 释放：交给 using</h3>
+
+<pre><span class="c">// 离开作用域（含异常路径）都会执行：</span>
+<span class="c">//   dst.Dispose()        —— 释放输出图</span>
+<span class="c">//   undistorter.Dispose() —— 释放句柄：表 + 显存 + 页锁缓冲 + TRT 上下文</span>
+<span class="c">//   src.Dispose()        —— 释放输入图</span></pre>
+
+<div class="kv">
+  <dt>顺序</dt><dd>后进先出：<code>dst</code> → <code>undistorter</code> → <code>src</code>。</dd>
+  <dt>幂等</dt><dd><code>Dispose()</code> 可重复调用；<code>ObjectDisposedException</code> 会在误用时抛出。</dd>
+  <dt>忘了会怎样</dt><dd>终结器兜底释放（会晚、但不会漏显存）；仍建议始终 <code>using</code>。</dd>
+  <dt>显存口径</dt><dd>每个实例 <b>280 MB</b>；并行就每线程一实例（原生一条 stream + 互斥锁，单实例多线程会串行）。</dd>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s5">5. 关键代码与文件（85 行）</h2>
+
+<p>完整文件：<code>csharp/Undistortion.Test/Program.cs</code>（85 行）。和最小版本相比，多出来的只有两段
+   —— 一段负责“矩阵在哪”，一段负责“找不到时怎么提示”：</p>
+
+<pre><span class="c">// ① 参数：只有 --image 必填；--matrix 可省略</span>
+<span class="k">string</span>? imagePath = Arg(args, <span class="s">"--image"</span>);
+<span class="k">if</span> (imagePath <span class="k">is null</span>) { <span class="c">/* 打印用法 */</span> <span class="k">return</span> 2; }
+
+<span class="c">// ② 矩阵位置：省略 = &lt;exe&gt;\\botong25；相对名也按 exe 目录解析（与 CWD 无关）</span>
+<span class="k">string</span> matrixDir = ResolveFromExeDir(Arg(args, <span class="s">"--matrix"</span>) ?? <span class="s">"botong25"</span>);
+<span class="k">if</span> (!Directory.Exists(matrixDir))
+{
+    Console.Error.WriteLine(<span class="s">$"矩阵目录不存在: {matrixDir}"</span>);
+    Console.Error.WriteLine(<span class="s">"把 botong25（12 个 .bin）放到 exe 同级目录，或用 --matrix 指定绝对路径。"</span>);
+    <span class="k">return</span> 2;
+}
+
+<span class="c">// ③ 四段主逻辑（读图 → 结构体 → 初始化 → 调用 → 释放）</span>
+<span class="k">using</span> Mat src = Cv2.ImRead(imagePath, ImreadModes.Grayscale);
+<span class="k">var</span> config = <span class="k">new</span> UndistortionConfig { MatrixDir = matrixDir, Width = src.Width, Height = src.Height };
+<span class="k">using var</span> undistorter = <span class="k">new</span> Undistorter(config);
+<span class="k">using</span> Mat dst = undistorter.Process(src);
+Cv2.ImWrite(outPath, dst);</pre>
+
+<div class="note">
+  <b>运行时会多打印一行 <code>matrix:</code></b>，告诉你这次实际用的是哪个矩阵目录 ——
+  排查“怎么用了旧矩阵/别的矩阵”时，先看这一行。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s6">6. 运行与预期输出</h2>
+
+<pre><span class="c"># ① 开发：跑脚本（自动构建 + 补齐 TRT/CUDA 的 PATH + 传绝对矩阵路径）</span>
+powershell -ExecutionPolicy Bypass -File scripts\run_test.ps1
+powershell -ExecutionPolicy Bypass -File scripts\run_test.ps1 -Image D:\a.bmp -Matrix D:\botong25
+
+<span class="c"># ② 部署形态：矩阵放 exe 同级，然后完全不传 --matrix</span>
+powershell -ExecutionPolicy Bypass -File scripts\link_matrix.ps1   <span class="c"># 开发期用联接，免拷贝 960 MB</span>
+csharp\Undistortion.Test\bin\Release\net8.0\Undistortion.Test.exe --image D:\a.bmp
+
+<span class="c"># ③ 矩阵装在别处：直接给绝对路径（最稳）</span>
+Undistortion.Test.exe --image D:\a.bmp --matrix D:\opt\undistortion\botong25</pre>
+
+<p>实测输出：</p>
+
+<pre>in    : …\demo\raw\PIC_1_1.bmp (5120x4096, CV_8UC1)
+matrix: …\csharp\Undistortion.Test\bin\Release\net8.0\botong25
+out   : …\output\PIC_1_1.bmp (5120x4096)
+info  : 5120x4096 x1, table=240.0 MB (12.0 B/px), device=280.0 MB, staging=pinned,
+        gpu=NVIDIA GeForce RTX 5060 Laptop GPU (26 SM), trt=10.14.1
+timing: h2d=0.827 infer=1.214 d2h=0.767 total=11.981 ms</pre>
+
+<div class="kv">
+  <dt>看到 matrix / info 行</dt><dd>说明 PATH、<code>undist_api.dll</code>、驱动、显存都对了。</dd>
+  <dt><code>staging=pinned</code></dt><dd>页锁暂存生效；若是 <code>pageable</code> 说明页锁内存不足已自动回退。</dd>
+  <dt>首帧 9~10 ms</dt><dd>含冷启动页错误；连续跑稳定在 <b>≈5 ms</b>（库内口径 4.94 ms）。</dd>
+  <dt>整进程 8~9 s</dt><dd>几乎全是初始化（引擎现场构建），属预期。</dd>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s7">7. 只列会踩的四个错误</h2>
+
+<table>
+  <thead><tr><th>现象</th><th>原因</th><th>改法</th></tr></thead>
+  <tbody>
+    <tr><td><code>读图失败: …</code>（退出码 3）</td>
+        <td>路径错 / 不是图片 / 不是单通道</td>
+        <td>确认路径；<code>ImreadModes.Grayscale</code> 会强转单通道</td></tr>
+    <tr><td><code>矩阵目录不存在: …&lt;exe&gt;\botong25</code></td>
+        <td>默认位置没有 <code>botong25</code>，或 <code>--matrix</code> 给错</td>
+        <td>把 <code>botong25</code> 放到 exe 同级（部署拷贝，或开发期跑 <code>scripts\link_matrix.ps1</code>），
+            或用 <code>--matrix</code> 给绝对路径。程序打印的路径就是它实际找的位置</td></tr>
+    <tr><td><code>UndistortionException [MatrixSize(-7)]</code></td>
+        <td>图像尺寸与矩阵尺寸不一致</td>
+        <td>本程序取图像尺寸，所以基本只会出现在“换了矩阵”时：确认矩阵对应的分辨率</td></tr>
+    <tr><td><code>DllNotFoundException … 'undist_api' (0x8007007E)</code></td>
+        <td><code>undist_api.dll</code> 不在 exe 目录，或 <code>nvinfer_10</code>/<code>cudart64_12</code> 找不到</td>
+        <td>把 <code>thirdpart\undist_api.dll</code> 放到 exe 同目录；把 TRT/CUDA 的 <code>bin</code> 加进 <code>PATH</code></td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s8">8. 从 Test 到上位机：只差一步</h2>
+
+<div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+  <div class="card">
+    <h4>Test 里</h4>
+    <p>参数来自命令行：<code>--matrix</code> + 图像尺寸。</p>
+    <pre style="margin:8px 0"><span class="k">var</span> config = <span class="k">new</span> UndistortionConfig
+{
+    MatrixDir = matrixDir,
+    Width = src.Width,
+    Height = src.Height,
+};</pre>
+  </div>
+  <div class="card">
+    <h4>上位机里</h4>
+    <p>参数来自你自己的配置体系（界面 / INI / 数据库），其余<b>完全一样</b>。</p>
+    <pre style="margin:8px 0"><span class="k">var</span> config = <span class="k">new</span> UndistortionConfig
+{
+    MatrixDir = yourMatrixDir,
+    Width = 5120, Height = 4096,
+    DeviceId = 0,
+};</pre>
+  </div>
+</div>
+
+<p>
+  剩下的就是：引用 <code>Undistortion.Inference.dll</code>、把 <code>undist_api.dll</code> 放到宿主 exe 目录、
+  把 <code>botong25</code>（960 MB）放到宿主 exe 目录（或给绝对路径）、
+  机器上装好 TensorRT/CUDA 并配 <code>PATH</code>。初始化一次、长期复用，每帧 <code>Process</code> 即可。
+  完整依赖与部署形态见
+  <a href="UNDIST-106-去畸变Undistortion_项目使用说明_目录结构_环境配置与集成_20261104.html">UNDIST-106 项目使用说明</a>。
+</p>
+
+<div class="note">
+  <b>上位机侧的一条纪律：</b>相对路径按 exe 目录解析，是我们<b>在应用层</b>做的决策（Test / Tools 各自实现）。
+  类库本身仍把 <code>MatrixDir</code> <b>原样</b>交给原生库 —— 所以上位机请直接给<b>绝对路径</b>，不要依赖 CWD。
+</div>
+
+<hr>
+<p class="small">
+  UNDIST-107 · 2026-11-04 · 位置：<code>Algorithms/undistortion/csharp/document/</code> ·
+  对象：<code>csharp/Undistortion.Test/Program.cs</code>（85 行） ·
+  参考：UNDIST-106（依赖与环境）、UNDIST-108（第三方库安装）、UNDIST-105（结构与边界）、UNDIST-104（完整接口）
+</p>
+
+</div>
+</body>
+</html>

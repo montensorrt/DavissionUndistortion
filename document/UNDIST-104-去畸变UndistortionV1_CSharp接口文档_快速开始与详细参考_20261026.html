@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>去畸变 UndistortionV1 —— C# 接口文档（快速开始 + 详细参考）</title>
+<style>
+  :root{
+    --ink:#16202b; --ink2:#43535f; --line:#dde4ec; --bg:#f5f8fb; --card:#fff;
+    --accent:#0f7b6c; --accent2:#0a5c50; --blue:#1f6feb; --blue2:#0b4ea2;
+    --ok:#177f4b; --warn:#b45309; --bad:#b91c1c;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+       line-height:1.72;font-size:15px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px 96px}
+  header.hero{background:linear-gradient(135deg,#062f28 0%,#0d5145 52%,#0f7b6c 100%);
+       color:#fff;padding:52px 28px 44px;margin-bottom:34px}
+  header.hero .inner{max-width:1180px;margin:0 auto}
+  header.hero h1{margin:0 0 10px;font-size:31px;letter-spacing:.4px;font-weight:700}
+  header.hero .sub{opacity:.93;font-size:15.5px;max-width:960px}
+  header.hero .tags{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+  header.hero .tag{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+       padding:4px 11px;border-radius:999px;font-size:12.5px}
+  h2{margin:52px 0 14px;font-size:23px;padding-bottom:9px;border-bottom:2px solid var(--accent);
+     color:var(--accent2)}
+  h3{margin:32px 0 10px;font-size:17.5px}
+  h4{margin:22px 0 8px;font-size:15px;color:var(--ink2)}
+  code{font-family:var(--mono);background:#eaf1f6;padding:1.5px 5px;border-radius:4px;
+       font-size:13px;color:#0a5c50}
+  pre{background:#0d1a20;color:#d8e8e4;padding:16px 18px;border-radius:8px;overflow-x:auto;
+      font-family:var(--mono);font-size:12.7px;line-height:1.62;border:1px solid #1b3038}
+  pre .c{color:#78968f}
+  pre .k{color:#6fc9b8}
+  pre .s{color:#a5d6a7}
+  table{border-collapse:collapse;width:100%;margin:16px 0;background:var(--card);
+        border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:13.6px}
+  th,td{padding:8px 11px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#e9f2f0;font-weight:600;color:#123f39;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(even){background:#fbfdfc}
+  td.num,th.num{text-align:right;font-family:var(--mono);font-size:12.9px;white-space:nowrap}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+        padding:18px 22px;margin:18px 0;box-shadow:0 1px 2px rgba(16,32,56,.04)}
+  .kv{display:grid;grid-template-columns:220px 1fr;gap:6px 16px;font-size:14px}
+  .kv dt{color:var(--ink2);font-weight:600}
+  .kv dd{margin:0}
+  .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600}
+  .b-ok{background:#e0f4ee;color:var(--ok);border:1px solid #b4e0d4}
+  .b-warn{background:#fdf1e0;color:var(--warn);border:1px solid #f3d3a3}
+  .b-bad{background:#fdecec;color:var(--bad);border:1px solid #f5c1c1}
+  .b-info{background:#e8f0fd;color:var(--blue2);border:1px solid #c2d9fb}
+  .note{border-left:4px solid var(--accent);background:#eef8f5;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .warnbox{border-left:4px solid var(--warn);background:#fff8ee;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .badbox{border-left:4px solid var(--bad);background:#fff3f3;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .bluebox{border-left:4px solid var(--blue);background:#f0f6ff;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:10px;
+       padding:16px 26px;margin:26px 0}
+  .toc ol{margin:6px 0 0;padding-left:20px}
+  .toc a{color:var(--accent2);text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  .toc > ol > li{margin:4px 0;font-weight:600}
+  .toc ol ol li{font-weight:400;font-size:13.6px}
+  .small{font-size:12.8px;color:var(--ink2)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:880px){.two{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
+  hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
+  .flow{background:#0d1a20;color:#d8e8e4;border-radius:8px;padding:18px 20px;overflow-x:auto;
+        font-family:var(--mono);font-size:12.3px;line-height:1.6}
+  .flow .b{color:#6fc9b8}
+  .flow .n{color:#f0b862}
+  .flow .g{color:#8fb8b0}
+  .part{display:inline-block;background:var(--accent);color:#fff;border-radius:6px;
+        padding:2px 10px;font-size:12.5px;font-weight:700;margin-right:8px;vertical-align:middle}
+  .api{font-family:var(--mono);font-size:13px;background:#0d1a20;color:#d8e8e4;
+       padding:2px 8px;border-radius:5px;display:inline-block}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="inner">
+    <h1>去畸变 UndistortionV1 —— C# 接口文档</h1>
+    <div class="sub">
+      分两部分：<b>① 极简调用</b>（初始化后直接推理，最少代码、最高效启动）；
+      <b>② 详细参考</b>（全部参数、返回类型、异常、生命周期、C ABI）。
+      适用于 <code style="background:rgba(255,255,255,.16);color:#fff">UndistortionV1Inference</code>
+      （.NET 8）与 <code style="background:rgba(255,255,255,.16);color:#fff">undist_api.dll</code>。
+    </div>
+    <div class="tags">
+      <span class="tag">.NET 8 / net8.0</span>
+      <span class="tag">OpenCvSharp4 4.13（Mat 入口）</span>
+      <span class="tag">undist_api.dll · 10 个 C 导出</span>
+      <span class="tag">Mat 4.94 ms · 零拷贝 2.89 ms</span>
+      <span class="tag">5120×4096 CV_8UC1</span>
+      <span class="tag">版本 1.0 / 2026-10-26</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div style="border-left:5px solid #b45309;background:#fff8ee;padding:14px 20px;
+            border-radius:0 8px 8px 0;margin:0 0 22px;font-size:14px">
+  <b>阅读提示（2026-11-04 更新）：</b>本文描述的是类库的<b>完整能力面</b>
+  （<code>byte[]</code> / 零拷贝 <code>PinnedBuffer</code> / 裸指针 / 纯 kernel 基准 / 内存模式切换）。
+  交付层现已收敛为 <b>Mat 单一入口</b>，命名空间 <code>UndistortionV1Inference</code> →
+  <code>Undistortion.Inference</code>，初始化参数统一进 <code>config/undistortion.json</code>。
+  现行接口、逐条迁移对照与各入口的实测数据见
+  <a href="UNDIST-105-去畸变Undistortion_项目梳理_结构与功能保留去除分析_20261104.html">UNDIST-105 项目梳理与精简重构</a>。
+  本文保留已移除入口的完整说明，作为能力档案使用。
+</div>
+
+<div class="toc">
+  <b>目录</b>
+  <ol>
+    <li><a href="#s1">文档说明与两条路径</a></li>
+    <li><a href="#s2">第一部分：极简调用（初始化 → 直接推理）</a>
+      <ol>
+        <li><a href="#s2-1">最小可用代码</a></li>
+        <li><a href="#s2-2">运行前置条件</a></li>
+        <li><a href="#s2-3">调用流程与逻辑</a></li>
+        <li><a href="#s2-4">最高效路径：pinned 零拷贝</a></li>
+        <li><a href="#s2-5">三种入口怎么选</a></li>
+      </ol>
+    </li>
+    <li><a href="#s3">第二部分：详细接口参考</a>
+      <ol>
+        <li><a href="#s3-1">程序集、命名空间与依赖</a></li>
+        <li><a href="#s3-2">构造函数</a></li>
+        <li><a href="#s3-3">属性</a></li>
+        <li><a href="#s3-4">方法总表</a></li>
+        <li><a href="#s3-5">方法详解（参数 / 返回 / 异常）</a></li>
+        <li><a href="#s3-6">PinnedBuffer</a></li>
+        <li><a href="#s3-7">数据类型</a></li>
+        <li><a href="#s3-8">C ABI 参考（C / C++ 调用方）</a></li>
+        <li><a href="#s3-9">生命周期、线程与所有权</a></li>
+        <li><a href="#s3-10">性能与选型</a></li>
+        <li><a href="#s3-11">FAQ</a></li>
+        <li><a href="#s3-12">附录：最小工程与版本矩阵</a></li>
+      </ol>
+    </li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s1">1. 文档说明与两条路径</h2>
+
+<div class="two">
+<div class="card">
+  <h4 style="margin-top:0"><span class="part">PART I</span>极简调用</h4>
+  <p class="small">
+    目标：<b>最少代码跑通</b>。一个构造函数 + 一个 <code>Process</code> 调用，
+    不需要写 YAML、不需要手动建引擎、不需要碰 CUDA。
+  </p>
+  <p class="small">适合：第一次接入、单图验证、Demo、已有 Mat 管线。</p>
+  <p class="small"><b>单图 4.94 ms</b>（Mat 进 Mat 出，默认 pinned 暂存）。</p>
+</div>
+<div class="card">
+  <h4 style="margin-top:0"><span class="part">PART II</span>详细参考</h4>
+  <p class="small">
+    目标：<b>查参数</b>。构造/属性/方法/返回类型/异常/结构体/错误码/C ABI，
+    以及生命周期、线程、性能和常见问题。
+  </p>
+  <p class="small">适合：封装集成、异常处理、C++ 直接调 DLL、性能调优。</p>
+  <p class="small"><b>零拷贝 2.89 ms</b>（调用方 pinned 缓冲）。</p>
+</div>
+</div>
+
+<div class="note">
+  <b>两条路径的共同点：</b>都是「初始化一次 → 每帧推理 → 释放一次」。
+  区别只在 Part I 用最少的代码，Part II 把所有可调参数与契约摊开。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s2">2. <span class="part">PART I</span>极简调用（初始化 → 直接推理）</h2>
+
+<h3 id="s2-1">2.1 最小可用代码</h3>
+<p>把下面 5 行逻辑跑通，就完成了去畸变接入：</p>
+<pre><span class="k">using</span> OpenCvSharp;
+<span class="k">using</span> UndistortionV1Inference;
+
+<span class="c">// 1) 初始化（一次）：矩阵目录 + 目标尺寸</span>
+<span class="k">using var</span> und = <span class="k">new</span> Undistorter(<span class="s">@"E:\...\botong25"</span>, 5120, 4096);
+
+<span class="c">// 2) 读图 + 推理（每帧）</span>
+<span class="k">using var</span> src = Cv2.ImRead(<span class="s">@"E:\...\PIC_1_1.bmp"</span>, ImreadModes.Grayscale);
+<span class="k">using var</span> dst = <span class="k">new</span> Mat(4096, 5120, MatType.CV_8UC1);
+und.Process(src, dst);
+
+<span class="c">// 3) 使用结果</span>
+Cv2.ImWrite(<span class="s">@"E:\...\out.bmp"</span>, dst);</pre>
+
+<p>
+  这就是全部。构造函数内部自动完成：加载 12 个矩阵 → 生成 12 B/px 紧凑表 →
+  构建/加载 TRT 引擎 → 表上显存 → 分配库内 pinned 暂存。调用方不需要出现
+  TensorRT、CUDA、engine 文件等概念。
+</p>
+
+<div class="note">
+  <b>为什么说“最简洁高效启动”：</b>
+  <ul style="margin:6px 0 0">
+    <li>只有 1 个类、1 个构造、1 个推理方法；</li>
+    <li>初始化参数只有「矩阵目录 + 宽 + 高」，无需 YAML / engine 路径；</li>
+    <li>默认走 <code>HostMemoryMode.Pinned</code>，比 pageable 直传快约 1.2×；</li>
+    <li>输出复用调用方 <code>Mat</code>，不产生每帧 20 MB 的额外分配。</li>
+  </ul>
+</div>
+
+<h3 id="s2-2">2.2 运行前置条件</h3>
+<table>
+  <thead><tr><th>项</th><th>要求</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>运行时</td><td>.NET 8（net8.0）</td><td>类库目标框架</td></tr>
+    <tr><td>原生库</td><td><code>undist_api.dll</code></td><td>放在 exe 同目录，或在 <code>PATH</code> 中</td></tr>
+    <tr><td>TensorRT</td><td><code>nvinfer_10.dll</code></td><td>把 <code>TensorRT\v10.14.1.48\bin</code> 加入 <code>PATH</code></td></tr>
+    <tr><td>CUDA</td><td><code>cudart64_12.dll</code></td><td>把 <code>CUDA\v12.8\bin</code> 加入 <code>PATH</code></td></tr>
+    <tr><td>矩阵目录</td><td>12 个 <code>.bin</code></td><td><code>U_1..U_4</code>、<code>V_1..V_4</code>、<code>A1..A4</code>，各 <code>W×H×4</code> 字节</td></tr>
+    <tr><td>图像</td><td><code>CV_8UC1</code>，尺寸精确匹配</td><td>彩色图先用 <code>Cv2.CvtColor</code> 转灰度</td></tr>
+    <tr><td>OpenCV</td><td>OpenCvSharp4 4.13</td><td>仅使用 <code>Mat</code> 入口时需要；<code>byte[]</code>/<code>IntPtr</code> 入口也因项目引用而带上</td></tr>
+  </tbody>
+</table>
+
+<h3 id="s2-3">2.3 调用流程与逻辑</h3>
+
+<div class="flow">
+<span class="n">① new Undistorter(matrixDir, W, H)</span>
+        │  加载矩阵/建表/建引擎/表上显存（约 2.2 s，一次）
+        ▼
+<span class="n">② 准备输入</span>：Cv2.ImRead → Mat（CV_8UC1），或 byte[] / PinnedBuffer / 指针
+        │
+        ▼
+<span class="n">③ und.Process(src, dst)</span>
+        │  H2D（0.78 ms） → kernel（1.17 ms） → D2H（0.78 ms）
+        │  Mat 路径另含库内两次 memcpy（约 2.2 ms）
+        ▼
+<span class="n">④ 使用 dst</span>：显示、保存、测量、下游算法
+        │
+        ▼
+<span class="n">⑤ using / Dispose</span>：释放 engine/表/显存/pinned 暂存（一次）
+</div>
+
+<table>
+  <thead><tr><th>步骤</th><th>代码</th><th>频率</th><th>典型耗时</th></tr></thead>
+  <tbody>
+    <tr><td>初始化</td><td><code>new Undistorter(...)</code></td><td>进程一次</td><td>2.2 s（warm）/ 5.8 s（冷构建引擎）</td></tr>
+    <tr><td>读图/解码</td><td><code>Cv2.ImRead(...)</code></td><td>每帧</td><td>约 22.7 ms（BMP 5120×4096，含解码）</td></tr>
+    <tr><td>推理</td><td><code>und.Process(src, dst)</code></td><td>每帧</td><td>4.94 ms（Mat）/ 2.89 ms（零拷贝）</td></tr>
+    <tr><td>消费</td><td>显示 / 保存 / 下游</td><td>每帧</td><td>取决于业务；BMP 写约 15.4 ms</td></tr>
+    <tr><td>释放</td><td><code>Dispose()</code></td><td>进程一次</td><td>&lt;1 ms</td></tr>
+  </tbody>
+</table>
+
+<h3 id="s2-4">2.4 最高效路径：pinned 零拷贝</h3>
+<p>
+  如果追求最低延迟，用 <code>PinnedBuffer</code> 常驻页锁缓冲，调用 <code>ProcessPinned</code>：
+</p>
+<pre><span class="k">const int</span> N = 5120 * 4096;
+
+<span class="c">// 只建一次：Undistorter + 2 块页锁缓冲</span>
+<span class="k">using var</span> und = <span class="k">new</span> Undistorter(matrixDir, 5120, 4096);
+<span class="k">using var</span> pinIn  = <span class="k">new</span> PinnedBuffer(N);
+<span class="k">using var</span> pinOut = <span class="k">new</span> PinnedBuffer(N);
+
+<span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; 100; i++)
+{
+    <span class="k">using var</span> frame = Cv2.ImRead(path_i, ImreadModes.Grayscale);
+
+    <span class="c">// 上游只能给 pageable Mat：每帧一次拷入（约 1 ms，计时外）</span>
+    pinIn.CopyFrom(frame.Data, N);
+
+    <span class="c">// 若相机/采集线程直接写 pinIn.Pointer，这一句可完全省略</span>
+
+    und.ProcessPinned(pinIn, pinOut);   <span class="c">// ≈ 2.89 ms</span>
+
+    <span class="c">// 下游直接读 pinOut.Array / pinOut.Pointer</span>
+}</pre>
+
+<div class="warnbox">
+  <b>2.89 ms 的前提：</b>输入/输出缓冲本身是页锁内存且常驻复用。
+  如果每帧还要从 <code>Mat</code> 拷入、再拷回 <code>Mat</code>，实际约 4.9 ms，
+  与 Mat 路径基本一样（见 §3-10）。
+</div>
+
+<h3 id="s2-5">2.5 三种入口怎么选</h3>
+<table>
+  <thead><tr><th>入口</th><th>代码</th><th>适用</th><th class="num">单图</th></tr></thead>
+  <tbody>
+    <tr><td>Mat（默认）</td><td><code>und.Process(srcMat, dstMat)</code></td>
+        <td>已有 OpenCV 管线，最省事</td><td class="num">4.94 ms</td></tr>
+    <tr><td>PinnedBuffer</td><td><code>und.ProcessPinned(pinIn, pinOut)</code></td>
+        <td>采集/下游能直接使用页锁缓冲</td><td class="num">2.89 ms</td></tr>
+    <tr><td>byte[]</td><td><code>und.Process(byteArray)</code></td>
+        <td>与相机 SDK / 网络包对接，长度 = W×H</td><td class="num">4.94 ms</td></tr>
+    <tr><td>裸指针</td><td><code>und.Process(srcPtr, stride, dstPtr, stride, pinned)</code></td>
+        <td>非托管缓冲、带行跨距</td><td class="num">取决于 pinned</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s3">3. <span class="part">PART II</span>详细接口参考</h2>
+
+<h3 id="s3-1">3.1 程序集、命名空间与依赖</h3>
+<table>
+  <thead><tr><th>项</th><th>值</th></tr></thead>
+  <tbody>
+    <tr><td>程序集</td><td><code>UndistortionV1Inference.dll</code></td></tr>
+    <tr><td>命名空间</td><td><code>UndistortionV1Inference</code></td></tr>
+    <tr><td>目标框架</td><td><code>net8.0</code></td></tr>
+    <tr><td>原生依赖</td><td><code>undist_api.dll</code>（本工程构建）→ <code>nvinfer_10.dll</code>、<code>cudart64_12.dll</code></td></tr>
+    <tr><td>托管依赖</td><td><code>OpenCvSharp4</code> 4.13.0.20260627 + <code>OpenCvSharp4.runtime.win</code>（Mat 类型与 native extern）</td></tr>
+    <tr><td>unsafe</td><td>是（固定长度 UTF-8 字段解码、PinnedBuffer 指针访问）</td></tr>
+    <tr><td>线程安全</td><td>单实例单线程；多线程请每线程一个实例</td></tr>
+  </tbody>
+</table>
+
+<h3 id="s3-2">3.2 构造函数</h3>
+<pre><span class="k">public</span> Undistorter(<span class="k">string</span> matrixDir, <span class="k">int</span> width, <span class="k">int</span> height,
+                   UndistortionOptions? options = <span class="k">null</span>,
+                   <span class="k">string</span>? engineCachePath = <span class="k">null</span>)</pre>
+
+<table>
+  <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>默认</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>matrixDir</code></td><td><code>string</code></td><td>是</td><td>—</td>
+        <td>去畸变矩阵目录（UTF-8），含 12 个 <code>.bin</code></td></tr>
+    <tr><td><code>width</code></td><td><code>int</code></td><td>是</td><td>—</td>
+        <td>目标图宽度，必须等于矩阵宽度（本工程 5120）</td></tr>
+    <tr><td><code>height</code></td><td><code>int</code></td><td>是</td><td>—</td>
+        <td>目标图高度，必须等于矩阵高度（本工程 4096）</td></tr>
+    <tr><td><code>options</code></td><td><code>UndistortionOptions?</code></td><td>否</td><td><code>null</code></td>
+        <td>null 等价于 <code>Pinned / DeviceId=0 / LogLevel=0</code></td></tr>
+    <tr><td><code>engineCachePath</code></td><td><code>string?</code></td><td>否</td><td><code>null</code></td>
+        <td>null = 每次现场构建/加载；非空 = 存在则反序列化，不存在则构建后写盘</td></tr>
+  </tbody>
+</table>
+
+<h4>异常</h4>
+<table>
+  <thead><tr><th>异常</th><th>触发</th></tr></thead>
+  <tbody>
+    <tr><td><code>ArgumentException</code></td><td><code>matrixDir</code> 为空/空白</td></tr>
+    <tr><td><code>DirectoryNotFoundException</code></td><td><code>matrixDir</code> 不存在</td></tr>
+    <tr><td><code>ArgumentOutOfRangeException</code></td><td><code>width</code> 或 <code>height</code> ≤ 0</td></tr>
+    <tr><td><code>UndistortionException</code></td><td>原生初始化失败（矩阵缺失 -6、大小不符 -7、引擎 -9、显存 -8 等）</td></tr>
+    <tr><td><code>DllNotFoundException</code></td><td><code>undist_api.dll</code> 不在 exe 目录/<code>PATH</code></td></tr>
+    <tr><td><code>BadImageFormatException</code></td><td>DLL 位数/架构不匹配（应为 x64）</td></tr>
+  </tbody>
+</table>
+
+<h3 id="s3-3">3.3 属性</h3>
+<table>
+  <thead><tr><th>属性</th><th>类型</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Info</code></td><td><code>UndistortionInfo</code></td>
+        <td>初始化时生成的快照：尺寸、表/引擎/显存、GPU、TRT 版本、初始化耗时</td></tr>
+    <tr><td><code>LastTiming</code></td><td><code>UndistortionTiming</code></td>
+        <td>最近一次 <code>Process</code> 的分段耗时；<code>BenchKernel</code> 不更新它</td></tr>
+    <tr><td><code>MemoryMode</code></td><td><code>HostMemoryMode</code></td>
+        <td>当前库内暂存模式；<code>SetMemoryMode</code> 后更新。<b>注意</b> <code>Info.MemoryMode</code> 是初始化快照，不会随之变化</td></tr>
+  </tbody>
+</table>
+
+<h3 id="s3-4">3.4 方法总表</h3>
+<table>
+  <thead><tr><th>方法</th><th>返回</th><th>用途</th></tr></thead>
+  <tbody>
+    <tr><td><code>Process(Mat src, Mat? dst = null)</code></td><td><code>Mat</code></td>
+        <td>Mat 进 Mat 出（库内 pinned 暂存）</td></tr>
+    <tr><td><code>Process(byte[] src)</code></td><td><code>byte[]</code></td>
+        <td>byte[] 进 byte[] 出（内部 pin 数组）</td></tr>
+    <tr><td><code>ProcessPinned(PinnedBuffer src, PinnedBuffer dst)</code></td><td><code>void</code></td>
+        <td>页锁缓冲零拷贝</td></tr>
+    <tr><td><code>Process(IntPtr src, int srcStride, IntPtr dst, int dstStride, bool pinnedBuffers = false)</code></td><td><code>void</code></td>
+        <td>裸指针入口，支持行跨距</td></tr>
+    <tr><td><code>BenchKernel(Mat src, int iterations = 50)</code></td><td><code>UndistortionTiming</code></td>
+        <td>纯 kernel 基准（图只搬一次）</td></tr>
+    <tr><td><code>SetMemoryMode(HostMemoryMode mode)</code></td><td><code>void</code></td>
+        <td>切换 pageable / pinned（不重建引擎）</td></tr>
+    <tr><td><code>QueryLastTiming()</code></td><td><code>UndistortionTiming</code></td>
+        <td>查询最近一次耗时（与 <code>LastTiming</code> 一致）</td></tr>
+    <tr><td><code>Dispose()</code></td><td><code>void</code></td>
+        <td>释放句柄/显存（幂等）</td></tr>
+  </tbody>
+</table>
+
+<h3 id="s3-5">3.5 方法详解（参数 / 返回 / 异常）</h3>
+
+<h4>3.5.1 <code>Mat Process(Mat src, Mat? dst = null)</code></h4>
+<table>
+  <thead><tr><th>参数</th><th>类型</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>src</code></td><td><code>Mat</code></td>
+        <td>输入图，必须 <code>CV_8UC1</code>、非空、尺寸 = <code>Info.Width/Height</code>；非连续时内部 <code>Clone</code></td></tr>
+    <tr><td><code>dst</code></td><td><code>Mat?</code></td>
+        <td>可选输出；null 时新建；提供时必须同尺寸/同类型且连续。<b>建议复用</b>，避免每帧 20 MB 分配</td></tr>
+  </tbody>
+</table>
+<p><b>返回：</b>输出 <code>Mat</code>（即 <code>dst</code>；<code>dst</code> 为 null 时是新建的）。</p>
+<p><b>异常：</b><code>ObjectDisposedException</code>、<code>ArgumentNullException</code>（src 为 null）、
+   <code>ArgumentException</code>（空图 / 非 CV_8UC1 / 尺寸不符 / dst 非法 / dst 不连续）、
+   <code>UndistortionException</code>（原生推理失败）。</p>
+<p><b>备注：</b>内部走「src → 库内 pinned → GPU → 库内 pinned → dst」，
+   <code>LastTiming.TotalMs</code> 包含两次主机 memcpy（约 4.94 ms）。</p>
+
+<h4>3.5.2 <code>byte[] Process(byte[] src)</code></h4>
+<table>
+  <thead><tr><th>参数</th><th>类型</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>src</code></td><td><code>byte[]</code></td>
+        <td>长度必须 <b>恰好</b> <code>W×H</code>（20,971,520）；行优先、无 padding</td></tr>
+  </tbody>
+</table>
+<p><b>返回：</b>新建的 <code>byte[W×H]</code>。</p>
+<p><b>异常：</b><code>ObjectDisposedException</code>、<code>ArgumentNullException</code>、
+   <code>ArgumentException</code>（长度不符）、<code>UndistortionException</code>。</p>
+<p><b>备注：</b>每次调用会 pin 输入/输出数组并走库内暂存；高频路径请改用
+   <code>PinnedBuffer</code> + <code>ProcessPinned</code>。</p>
+
+<h4>3.5.3 <code>void ProcessPinned(PinnedBuffer src, PinnedBuffer dst)</code></h4>
+<table>
+  <thead><tr><th>参数</th><th>类型</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>src</code></td><td><code>PinnedBuffer</code></td>
+        <td>页锁输入，长度 = <code>W×H</code></td></tr>
+    <tr><td><code>dst</code></td><td><code>PinnedBuffer</code></td>
+        <td>页锁输出，长度 = <code>W×H</code></td></tr>
+  </tbody>
+</table>
+<p><b>返回：</b>无；结果写入 <code>dst.Array</code> / <code>dst.Pointer</code>。</p>
+<p><b>异常：</b><code>ObjectDisposedException</code>、<code>ArgumentNullException</code>、
+   <code>ArgumentException</code>（长度不符）、<code>UndistortionException</code>。</p>
+<p><b>备注：</b>库内不做主机拷贝，<code>LastTiming.TotalMs</code> 约 2.89 ms，但
+   <b>不含</b>调用方的 <code>CopyFrom/CopyTo</code>。缓冲必须由 <code>PinnedBuffer</code>
+   创建（已 <code>cudaHostRegister</code>）。</p>
+
+<h4>3.5.4 <code>void Process(IntPtr src, int srcStride, IntPtr dst, int dstStride, bool pinnedBuffers = false)</code></h4>
+<table>
+  <thead><tr><th>参数</th><th>类型</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>src</code> / <code>dst</code></td><td><code>IntPtr</code></td>
+        <td>非托管缓冲首地址；必须能容纳 <code>W×H</code> 字节</td></tr>
+    <tr><td><code>srcStride</code> / <code>dstStride</code></td><td><code>int</code></td>
+        <td>行跨距（字节），必须 ≥ <code>Info.Width</code>；等于宽度时为连续</td></tr>
+    <tr><td><code>pinnedBuffers</code></td><td><code>bool</code></td>
+        <td>true 表示 src/dst 已是页锁内存（<code>host_flags=1</code>）</td></tr>
+  </tbody>
+</table>
+<p><b>返回：</b>无；结果写入 <code>dst</code>。</p>
+<p><b>异常：</b><code>ObjectDisposedException</code>、<code>ArgumentException</code>（指针空 / stride 不足）、
+   <code>UndistortionException</code>。</p>
+<p><b>备注：</b>该入口不检查尺寸/类型（无法从指针判断），由调用方保证缓冲足够大；
+   适合相机 SDK、非托管图像、带 padding 的行。</p>
+
+<h4>3.5.5 <code>UndistortionTiming BenchKernel(Mat src, int iterations = 50)</code></h4>
+<table>
+  <thead><tr><th>参数</th><th>类型</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>src</code></td><td><code>Mat</code></td>
+        <td>必须 <code>CV_8UC1</code>、尺寸 = <code>Info.Width/Height</code>；非连续时内部 Clone</td></tr>
+    <tr><td><code>iterations</code></td><td><code>int</code></td>
+        <td>连续 enqueue 次数，≥ 1（默认 50）</td></tr>
+  </tbody>
+</table>
+<p><b>返回：</b><code>UndistortionTiming</code>；其中 <code>InferMs</code> = 平均 kernel 时间，
+   <code>H2dMs = 0</code>、<code>D2hMs = 0</code>、<code>TotalMs = InferMs</code>。</p>
+<p><b>异常：</b><code>ObjectDisposedException</code>、<code>ArgumentNullException</code>、
+   <code>ArgumentException</code>（空图/类型/尺寸）、<code>ArgumentOutOfRangeException</code>（iterations &lt; 1）、
+   <code>UndistortionException</code>。</p>
+<p><b>备注：</b>该调用<b>不更新</b> <code>LastTiming</code>；用于测“纯 kernel 上限”，不代表端到端。</p>
+
+<h4>3.5.6 <code>void SetMemoryMode(HostMemoryMode mode)</code></h4>
+<p><b>参数：</b><code>Pageable</code> 或 <code>Pinned</code>。</p>
+<p><b>返回：</b>无。<b>异常：</b><code>ObjectDisposedException</code>、<code>UndistortionException</code>。</p>
+<p><b>备注：</b>只重建/释放库内主机暂存，不重建引擎、不重传表；影响后续
+   <code>Process(Mat/byte[]/IntPtr)</code> 的 <code>host_flags=0</code> 路径；
+   <code>ProcessPinned</code> 始终零拷贝，不受影响。</p>
+
+<h4>3.5.7 <code>UndistortionTiming QueryLastTiming()</code></h4>
+<p><b>返回：</b>最近一次 <code>Process</code> 的计时（与 <code>LastTiming</code> 一致）。</p>
+<p><b>异常：</b><code>ObjectDisposedException</code>、<code>UndistortionException</code>。</p>
+
+<h4>3.5.8 <code>void Dispose()</code></h4>
+<p>释放 native 句柄（引擎、表、显存、stream、库内 pinned 暂存）。幂等；未调用时由终结器兜底。
+   释放后调用任何实例方法抛 <code>ObjectDisposedException</code>。</p>
+
+<h3 id="s3-6">3.6 PinnedBuffer</h3>
+<pre><span class="k">public sealed class</span> PinnedBuffer : IDisposable
+{
+    <span class="k">public</span> PinnedBuffer(<span class="k">int</span> length);
+    <span class="k">public byte</span>[] Array { <span class="k">get</span>; }
+    <span class="k">public int</span> Length { <span class="k">get</span>; }
+    <span class="k">public</span> IntPtr Pointer { <span class="k">get</span>; }
+    <span class="k">public void</span> CopyFrom(IntPtr src, <span class="k">int</span> bytes);
+    <span class="k">public void</span> CopyTo(IntPtr dst, <span class="k">int</span> bytes);
+    <span class="k">public void</span> Dispose();
+}</pre>
+
+<table>
+  <thead><tr><th>成员</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>PinnedBuffer(int length)</code></td>
+        <td>分配 <code>byte[length]</code>（POH）并 <code>cudaHostRegister</code> 注册为页锁内存；
+            <code>length ≤ 0</code> 抛 <code>ArgumentOutOfRangeException</code>，注册失败抛 <code>UndistortionException</code></td></tr>
+    <tr><td><code>Array</code></td><td>底层托管数组，可直接读写（长度 = <code>Length</code>）</td></tr>
+    <tr><td><code>Length</code></td><td>字节数（应 = <code>W×H</code>）</td></tr>
+    <tr><td><code>Pointer</code></td><td>稳定的页锁首地址，可传给相机/非托管代码</td></tr>
+    <tr><td><code>CopyFrom(IntPtr src, int bytes)</code></td><td>从任意主机地址 memcpy 到本缓冲；<code>bytes ≤ Length</code></td></tr>
+    <tr><td><code>CopyTo(IntPtr dst, int bytes)</code></td><td>从本缓冲 memcpy 到任意主机地址；<code>bytes ≤ Length</code></td></tr>
+    <tr><td><code>Dispose()</code></td><td><code>cudaHostUnregister</code> + 释放 GCHandle；幂等</td></tr>
+  </tbody>
+</table>
+
+<div class="warnbox">
+  <b>为什么需要它：</b>托管 <code>GCHandle(Pinned)</code> / POH 只保证“地址不被 GC 移动”，
+  <b>不是</b> CUDA 页锁内存；不调用 <code>cudaHostRegister</code> 时，零拷贝会退化为 pageable
+  （实测 5.93 ms vs 2.76 ms）。<code>PinnedBuffer</code> 已封装注册/反注册。
+</div>
+
+<h3 id="s3-7">3.7 数据类型</h3>
+
+<h4>3.7.1 <code>UndistortionOptions</code></h4>
+<table>
+  <thead><tr><th>属性</th><th>类型</th><th>默认</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>MemoryMode</code></td><td><code>HostMemoryMode</code></td><td><code>Pinned</code></td>
+        <td>库内暂存模式；<code>Pageable</code> 仅用于对照</td></tr>
+    <tr><td><code>DeviceId</code></td><td><code>int</code></td><td>0</td><td>CUDA 设备号</td></tr>
+    <tr><td><code>LogLevel</code></td><td><code>int</code></td><td>0</td><td>0 静默 / 1 关键节点 / 2 逐阶段明细</td></tr>
+  </tbody>
+</table>
+
+<h4>3.7.2 <code>HostMemoryMode</code></h4>
+<table>
+  <thead><tr><th>值</th><th>含义</th></tr></thead>
+  <tbody>
+    <tr><td><code>Pageable = 0</code></td><td>普通可分页内存，由驱动内部中转（对照用）</td></tr>
+    <tr><td><code>Pinned = 1</code></td><td>页锁内存，库内暂存走异步 DMA（默认）</td></tr>
+  </tbody>
+</table>
+
+<h4>3.7.3 <code>UndistortionInfo</code></h4>
+<table>
+  <thead><tr><th>属性</th><th>类型</th><th>单位</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Width</code> / <code>Height</code> / <code>Channels</code></td><td><code>int</code></td><td>px</td>
+        <td>目标尺寸与通道（当前恒为 1）</td></tr>
+    <tr><td><code>TableBytes</code></td><td><code>long</code></td><td>字节</td><td>常驻显存的索引/权重表（12 B/px，240 MiB）</td></tr>
+    <tr><td><code>EngineBytes</code></td><td><code>long</code></td><td>字节</td><td>序列化引擎大小（约 37 KB）</td></tr>
+    <tr><td><code>DeviceBytes</code></td><td><code>long</code></td><td>字节</td><td>显存总占用（表 + 输入/输出，280 MiB）</td></tr>
+    <tr><td><code>TableBytesPerPixel</code></td><td><code>double</code></td><td>B/px</td><td>应为 12.0</td></tr>
+    <tr><td><code>InitTableMs</code></td><td><code>double</code></td><td>ms</td><td>矩阵加载 + 建表</td></tr>
+    <tr><td><code>InitEngineMs</code></td><td><code>double</code></td><td>ms</td><td>引擎构建/加载 + 表上显存 + 暂存分配</td></tr>
+    <tr><td><code>InitTotalMs</code></td><td><code>double</code></td><td>ms</td><td>构造总耗时</td></tr>
+    <tr><td><code>MemoryMode</code></td><td><code>HostMemoryMode</code></td><td>—</td><td>初始化时的模式快照</td></tr>
+    <tr><td><code>TableVariant</code></td><td><code>int</code></td><td>—</td><td>1 = 变体 F（idx0 + fu + fv）</td></tr>
+    <tr><td><code>SmCount</code></td><td><code>int</code></td><td>—</td><td>GPU SM 数</td></tr>
+    <tr><td><code>GpuName</code></td><td><code>string</code></td><td>—</td><td>GPU 名称</td></tr>
+    <tr><td><code>TensorRtVersion</code></td><td><code>string</code></td><td>—</td><td>TensorRT 版本</td></tr>
+  </tbody>
+</table>
+
+<h4>3.7.4 <code>UndistortionTiming</code></h4>
+<table>
+  <thead><tr><th>属性</th><th>类型</th><th>单位</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>H2dMs</code></td><td><code>double</code></td><td>ms</td><td>主机 → 显存（pageable 含驱动中转）</td></tr>
+    <tr><td><code>InferMs</code></td><td><code>double</code></td><td>ms</td><td><code>enqueueV3 + streamSync</code></td></tr>
+    <tr><td><code>D2hMs</code></td><td><code>double</code></td><td>ms</td><td>显存 → 主机</td></tr>
+    <tr><td><code>TotalMs</code></td><td><code>double</code></td><td>ms</td><td>整个调用；Mat 路径含库内两次主机拷贝</td></tr>
+  </tbody>
+</table>
+
+<h4>3.7.5 <code>UndistErrorCode</code></h4>
+<table>
+  <thead><tr><th>枚举</th><th class="num">值</th><th>含义</th></tr></thead>
+  <tbody>
+    <tr><td><code>Ok</code></td><td class="num">0</td><td>成功</td></tr>
+    <tr><td><code>InitFailed</code></td><td class="num">-1</td><td>CUDA 初始化 / 页锁注册失败</td></tr>
+    <tr><td><code>InvalidHandle</code></td><td class="num">-2</td><td>句柄为空 / 已释放</td></tr>
+    <tr><td><code>InvalidImage</code></td><td class="num">-3</td><td>指针空 / stride 小于宽度</td></tr>
+    <tr><td><code>InferenceFailed</code></td><td class="num">-4</td><td><code>enqueueV3</code> 或 memcpy 失败</td></tr>
+    <tr><td><code>NotReady</code></td><td class="num">-5</td><td>初始化失败后继续调用</td></tr>
+    <tr><td><code>MatrixMissing</code></td><td class="num">-6</td><td>矩阵目录/文件缺失</td></tr>
+    <tr><td><code>MatrixSize</code></td><td class="num">-7</td><td><code>.bin</code> 大小 ≠ W×H×4</td></tr>
+    <tr><td><code>OutOfMemory</code></td><td class="num">-8</td><td>主机/显存分配失败</td></tr>
+    <tr><td><code>EngineBuild</code></td><td class="num">-9</td><td>TRT 引擎构建/反序列化失败</td></tr>
+    <tr><td><code>Unsupported</code></td><td class="num">-10</td><td>channels ≠ 1</td></tr>
+    <tr><td><code>InvalidArg</code></td><td class="num">-11</td><td>出参空 / 参数矛盾</td></tr>
+  </tbody>
+</table>
+
+<h4>3.7.6 <code>UndistortionException</code></h4>
+<table>
+  <thead><tr><th>成员</th><th>类型</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Code</code></td><td><code>UndistErrorCode</code></td><td>原生错误码</td></tr>
+    <tr><td><code>Message</code></td><td><code>string</code></td><td>格式：<code>[枚举名(码)] 原生错误串</code></td></tr>
+  </tbody>
+</table>
+
+<h3 id="s3-8">3.8 C ABI 参考（C / C++ 调用方）</h3>
+<p>
+  头文件：<code>trt/include/undist_api.h</code>；DLL：<code>undist_api.dll</code>；
+  调用约定：<code>__cdecl</code>；路径均为 UTF-8。
+</p>
+
+<h4>3.8.1 函数</h4>
+<pre><span class="c">// 初始化；options / cache 可为 NULL；失败也可能回写 ctx，先 get_error 再 release</span>
+int32_t undist_create(<span class="k">const char</span>* matrix_dir_utf8, int32_t width, int32_t height,
+                      <span class="k">const</span> undist_options* options,
+                      <span class="k">const char</span>* engine_cache_path_utf8, undist_ctx** out_ctx);
+
+<span class="c">// 单图推理；host_flags: 0=pageable/staging, 1=调用方页锁缓冲</span>
+int32_t undist_process(undist_ctx* ctx, <span class="k">const</span> uint8_t* src, int32_t src_stride,
+                       uint8_t* dst, int32_t dst_stride, int32_t host_flags,
+                       undist_timing* out_timing);
+
+<span class="c">// 纯 kernel 基准：图只搬一次，连续 enqueue iterations 次</span>
+int32_t undist_bench_kernel(undist_ctx* ctx, <span class="k">const</span> uint8_t* src,
+                            int32_t iterations, undist_timing* out_timing);
+
+int32_t undist_get_info(undist_ctx* ctx, undist_info* out_info);
+int32_t undist_get_last_timing(undist_ctx* ctx, undist_timing* out_timing);
+int32_t undist_set_memory_mode(undist_ctx* ctx, int32_t memory_mode); <span class="c">// 0/1</span>
+<span class="k">const char</span>* undist_get_error(undist_ctx* ctx);
+
+<span class="c">// 把调用方缓冲注册/反注册为页锁内存（C# PinnedBuffer 用）</span>
+int32_t undist_host_register(<span class="k">void</span>* ptr, int64_t bytes);
+<span class="k">void</span> undist_host_unregister(<span class="k">void</span>* ptr);
+
+<span class="k">void</span> undist_release(undist_ctx* ctx);</pre>
+
+<table>
+  <thead><tr><th>函数</th><th>关键约束</th><th>返回</th></tr></thead>
+  <tbody>
+    <tr><td><code>undist_create</code></td><td>W/H 必须匹配矩阵；<code>channels</code> 仅 1</td>
+        <td>0 / -1 / -6 / -7 / -8 / -9 / -10 / -11</td></tr>
+    <tr><td><code>undist_process</code></td><td>stride ≥ W；<code>host_flags</code> 仅 0/1；timing 可 NULL</td>
+        <td>0 / -2 / -3 / -4 / -11</td></tr>
+    <tr><td><code>undist_bench_kernel</code></td><td>iterations ≥ 1；timing 非空</td><td>0 / -2 / -4 / -11</td></tr>
+    <tr><td><code>undist_get_info</code></td><td>out 非空</td><td>0 / -2 / -11</td></tr>
+    <tr><td><code>undist_get_last_timing</code></td><td>out 非空</td><td>0 / -2 / -11</td></tr>
+    <tr><td><code>undist_set_memory_mode</code></td><td>mode 仅 0/1</td><td>0 / -2 / -5 / -11</td></tr>
+    <tr><td><code>undist_get_error</code></td><td>无 ctx 时返回静态串</td><td>const char*</td></tr>
+    <tr><td><code>undist_host_register</code></td><td>ptr 非空、bytes &gt; 0</td><td>0 / -1 / -11</td></tr>
+    <tr><td><code>undist_host_unregister</code></td><td>NULL 安全</td><td>void</td></tr>
+    <tr><td><code>undist_release</code></td><td>NULL 安全、幂等</td><td>void</td></tr>
+  </tbody>
+</table>
+
+<h4>3.8.2 结构体</h4>
+<pre><span class="c">// 16 字节</span>
+<span class="k">typedef struct</span> {
+    int32_t memory_mode;   <span class="c">// 0 pageable / 1 pinned（NULL options 时默认 1）</span>
+    int32_t device_id;     <span class="c">// 默认 0</span>
+    int32_t channels;      <span class="c">// 仅 1（0 等同 1）</span>
+    int32_t log_level;     <span class="c">// 0/1/2</span>
+} undist_options;
+
+<span class="c">// 32 字节</span>
+<span class="k">typedef struct</span> {
+    <span class="k">double</span> h2d_ms, infer_ms, d2h_ms, total_ms;
+} undist_timing;
+
+<span class="c">// 208 字节</span>
+<span class="k">typedef struct</span> {
+    int64_t table_bytes;            <span class="c">// 0</span>
+    int64_t engine_bytes;           <span class="c">// 8</span>
+    int64_t device_bytes;           <span class="c">// 16</span>
+    <span class="k">double</span>  table_bytes_per_pixel; <span class="c">// 24</span>
+    <span class="k">double</span>  init_table_ms;         <span class="c">// 32</span>
+    <span class="k">double</span>  init_engine_ms;        <span class="c">// 40</span>
+    <span class="k">double</span>  init_total_ms;         <span class="c">// 48</span>
+    int32_t width, height, channels;        <span class="c">// 56, 60, 64</span>
+    int32_t memory_mode, table_variant, sm_count; <span class="c">// 68, 72, 76</span>
+    <span class="k">char</span>    gpu_name[96];           <span class="c">// 80</span>
+    <span class="k">char</span>    tensorrt_version[32];   <span class="c">// 176</span>
+} undist_info;
+</pre>
+
+<h3 id="s3-9">3.9 生命周期、线程与所有权</h3>
+<table>
+  <thead><tr><th>对象</th><th>谁分配</th><th>谁释放</th><th>规则</th></tr></thead>
+  <tbody>
+    <tr><td><code>Undistorter</code> / <code>undist_ctx</code></td><td>库</td><td><code>Dispose</code> / <code>undist_release</code></td>
+        <td>进程内一次；失败路径也可能非空</td></tr>
+    <tr><td>表 / 引擎 / 显存</td><td>库</td><td>随 ctx</td><td>常驻，每帧不重建</td></tr>
+    <tr><td>库内 pinned 暂存</td><td>库 <code>cudaHostAlloc</code></td><td>随 ctx</td><td>2 × 20 MiB</td></tr>
+    <tr><td><code>PinnedBuffer</code></td><td>调用方</td><td><code>PinnedBuffer.Dispose</code></td>
+        <td>注册一次、复用；不能 <code>free</code></td></tr>
+    <tr><td>输入/输出 Mat / byte[]</td><td>调用方</td><td>调用方</td>
+        <td>建议复用输出，避免每帧 20 MB 分配</td></tr>
+  </tbody>
+</table>
+
+<div class="badbox">
+  <b>线程模型：</b>一个实例 = 一条 CUDA stream + 一个 context；native 内部有互斥锁，
+  多线程调用不会崩但会串行，且 C# 的 <code>LastTiming</code>/<code>Info</code> 不是并发安全的。
+  <b>要并行：每线程一个 <code>Undistorter</code></b>（每实例 280 MiB 显存）。
+</div>
+
+<pre><span class="c">// 推荐的释放顺序：后声明先释放</span>
+<span class="k">using var</span> und    = <span class="k">new</span> Undistorter(...);
+<span class="k">using var</span> pinIn  = <span class="k">new</span> PinnedBuffer(N);
+<span class="k">using var</span> pinOut = <span class="k">new</span> PinnedBuffer(N);
+<span class="k">using var</span> dst    = <span class="k">new</span> Mat(...);
+<span class="c">// 作用域结束：dst → pinOut → pinIn → und</span></pre>
+
+<h3 id="s3-10">3.10 性能与选型</h3>
+<table>
+  <thead><tr><th>入口</th><th class="num">C# 实测</th><th class="num">C++ 实测</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Process(Mat)</code></td><td class="num">5.107 ms</td><td class="num">4.944 ms</td>
+        <td>含库内两次主机拷贝</td></tr>
+    <tr><td><code>Process(byte[])</code></td><td class="num">≈5.1 ms</td><td class="num">—</td>
+        <td>额外 pin 数组；与 Mat 同量级</td></tr>
+    <tr><td><code>ProcessPinned</code></td><td class="num">2.764 ms</td><td class="num">2.892 ms</td>
+        <td>不含调用方 <code>CopyFrom/CopyTo</code></td></tr>
+    <tr><td>pageable 直传</td><td class="num">6.128 ms</td><td class="num">5.904 ms</td>
+        <td>仅对照；p90 尾部大</td></tr>
+    <tr><td><code>BenchKernel</code></td><td class="num">1.063 ms</td><td class="num">1.198 ms</td>
+        <td>纯 kernel，不含搬运</td></tr>
+  </tbody>
+</table>
+
+<p class="small">
+  计时有 ±10–20% 波动（短批次/冷时钟更明显）。批量：30 张 Mat 0.148 s / 零拷贝 0.087 s；
+  100 张 0.494 s / 0.289 s；加启动（2.225 s）后 2.373 s / 2.312 s。
+  详见 <code>UNDIST-103</code>。
+</p>
+
+<h3 id="s3-11">3.11 FAQ</h3>
+
+<h4>Q1：为什么构造函数要 2.2 秒？</h4>
+<p>要读 12 个矩阵（1 GB）并生成 12 B/px 紧凑表；引擎缓存加载约 0.15 s。冷启动构建引擎再加约 3.6 s。
+   表与引擎都是“一次初始化、常驻显存”，不会每帧重建。</p>
+
+<h4>Q2：为什么 <code>Process(Mat)</code> 4.9 ms，<code>ProcessPinned</code> 2.9 ms？</h4>
+<p>Mat 路径要在库内把 pageable 拷到 pinned、算完再拷回，约 2.2 ms；零拷贝路径省掉这两次 memcpy，
+   只剩 H2D 0.77 + kernel 1.35 + D2H 0.77。</p>
+
+<h4>Q3：一定要用 <code>PinnedBuffer</code> 吗？</h4>
+<p>不。只有追求 2.9 ms 时才需要。普通 <code>Process(Mat)</code> 开箱即用，4.9 ms。</p>
+
+<h4>Q4：<code>GCHandle(Pinned)</code> / POH 能当页锁内存吗？</h4>
+<p>不能。它只保证 GC 不移动对象，CUDA 仍按 pageable 处理。必须 <code>cudaHostRegister</code>；
+   <code>PinnedBuffer</code> 已封装。</p>
+
+<h4>Q5：可以传彩色 Mat 吗？</h4>
+<p>不可以，只接受 <code>CV_8UC1</code>。彩色请先 <code>Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY)</code>。</p>
+
+<h4>Q6：可以传 ROI / 子矩阵吗？</h4>
+<p>可以，但必须连续；<code>Process(Mat)</code> 会自动 <code>Clone</code> 非连续输入。
+   直接 <code>pinIn.CopyFrom(roi.Data, N)</code> 前请确认 <code>roi.IsContinuous()</code>。</p>
+
+<h4>Q7：多线程怎么用？</h4>
+<p>每线程一个 <code>Undistorter</code>。单实例内部串行，不要并发调用。</p>
+
+<h4>Q8：报 <code>DllNotFoundException</code> / <code>BadImageFormatException</code>？</h4>
+<p>前者是 <code>undist_api.dll</code> 不在 exe 目录/<code>PATH</code>；后者是位数不匹配（需 x64）。
+   还需要 <code>nvinfer_10.dll</code>、<code>cudart64_12.dll</code>。</p>
+
+<h4>Q9：引擎缓存能跨机器复制吗？</h4>
+<p>不能。引擎绑定 GPU 架构与 TensorRT 版本；缓存头会校验 W/H/表结构与 TRT 版本，不匹配会自动重建。</p>
+
+<h4>Q10：为什么 <code>Info.MemoryMode</code> 和 <code>MemoryMode</code> 可能不同？</h4>
+<p><code>Info</code> 是初始化快照；<code>SetMemoryMode</code> 只更新当前属性 <code>MemoryMode</code>。
+   以 <code>MemoryMode</code> 为准。</p>
+
+<h4>Q11：<code>BenchKernel</code> 会更新 <code>LastTiming</code> 吗？</h4>
+<p>不会。它返回独立的 timing；<code>LastTiming</code> 只由 <code>Process</code> 系列更新。</p>
+
+<h4>Q12：30 / 100 张要多久？</h4>
+<p>仅算法：0.148 s / 0.494 s（Mat）；0.087 s / 0.289 s（零拷贝）。
+   加启动：2.373 s / 2.720 s。读 BMP + 写 BMP：1.293 s / 4.308 s（加启动 3.518 s / 6.534 s）。</p>
+
+<h3 id="s3-12">3.12 附录：最小工程与版本矩阵</h3>
+
+<h4>3.12.1 最小 csproj</h4>
+<pre>&lt;Project Sdk=<span class="s">"Microsoft.NET.Sdk"</span>&gt;
+  &lt;PropertyGroup&gt;
+    &lt;OutputType&gt;Exe&lt;/OutputType&gt;
+    &lt;TargetFramework&gt;net8.0&lt;/TargetFramework&gt;
+    &lt;AllowUnsafeBlocks&gt;true&lt;/AllowUnsafeBlocks&gt;
+    &lt;Nullable&gt;enable&lt;/Nullable&gt;
+  &lt;/PropertyGroup&gt;
+  &lt;ItemGroup&gt;
+    &lt;PackageReference Include=<span class="s">"OpenCvSharp4"</span> Version=<span class="s">"4.13.0.20260627"</span> /&gt;
+    &lt;PackageReference Include=<span class="s">"OpenCvSharp4.runtime.win"</span> Version=<span class="s">"4.13.0.20260627"</span> /&gt;
+    &lt;ProjectReference Include=<span class="s">"..\UndistortionV1Inference\UndistortionV1Inference.csproj"</span> /&gt;
+  &lt;/ItemGroup&gt;
+&lt;/Project&gt;</pre>
+
+<h4>3.12.2 版本矩阵</h4>
+<table>
+  <thead><tr><th>组件</th><th>版本</th></tr></thead>
+  <tbody>
+    <tr><td>.NET</td><td>8.0</td></tr>
+    <tr><td>TensorRT</td><td>10.14.1.48</td></tr>
+    <tr><td>CUDA</td><td>12.8</td></tr>
+    <tr><td>OpenCvSharp4</td><td>4.13.0.20260627</td></tr>
+    <tr><td>MSVC</td><td>19.44（VS 2022）</td></tr>
+    <tr><td>原生 DLL</td><td><code>undist_api.dll</code>（x64）</td></tr>
+  </tbody>
+</table>
+
+<h4>3.12.3 相关文件</h4>
+<ul>
+  <li><code>csharp/UndistortionV1Inference/Undistorter.cs</code> —— 核心封装</li>
+  <li><code>csharp/UndistortionV1Inference/PinnedBuffer.cs</code> —— 页锁缓冲</li>
+  <li><code>csharp/UndistortionV1Inference/UndistortionTypes.cs</code> —— Options/Info/Timing/Exception</li>
+  <li><code>csharp/Sample/Program.cs</code> —— 单图示例</li>
+  <li><code>csharp/SelfTest/Program.cs</code> —— 16 项契约自测</li>
+  <li><code>trt/include/undist_api.h</code> —— C ABI 头文件</li>
+</ul>
+
+<hr>
+<p class="small">
+  相关文档：<code>UNDIST-101</code>（设计与实现）、<code>UNDIST-102</code>（测试与验收）、
+  <code>UNDIST-103</code>（内存搬运与批量耗时）。本文以当前代码为准：
+  <code>Undistorter</code> / <code>PinnedBuffer</code> / <code>undist_api.h</code>。
+</p>
+
+</div>
+</body>
+</html>

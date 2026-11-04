@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>Undistortion.Tools</AssemblyName>
+    <RootNamespace>Undistortion.Tools</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Undistortion.Inference\Undistortion.Inference.csproj" />
+  </ItemGroup>
+
+</Project>

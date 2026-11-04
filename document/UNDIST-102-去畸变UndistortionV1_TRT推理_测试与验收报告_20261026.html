@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>去畸变 UndistortionV1 —— TRT 推理 测试与验收报告</title>
+<style>
+  :root{
+    --ink:#16202b; --ink2:#43535f; --line:#dde4ec; --bg:#f5f8fb; --card:#fff;
+    --accent:#0f7b6c; --accent2:#0a5c50; --blue:#1f6feb; --blue2:#0b4ea2;
+    --ok:#177f4b; --warn:#b45309; --bad:#b91c1c;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+       line-height:1.72;font-size:15px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px 96px}
+  header.hero{background:linear-gradient(135deg,#062f28 0%,#0d5145 52%,#0f7b6c 100%);
+       color:#fff;padding:52px 28px 44px;margin-bottom:34px}
+  header.hero .inner{max-width:1180px;margin:0 auto}
+  header.hero h1{margin:0 0 10px;font-size:31px;letter-spacing:.4px;font-weight:700}
+  header.hero .sub{opacity:.93;font-size:15.5px;max-width:960px}
+  header.hero .tags{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+  header.hero .tag{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+       padding:4px 11px;border-radius:999px;font-size:12.5px}
+  h2{margin:52px 0 14px;font-size:23px;padding-bottom:9px;border-bottom:2px solid var(--accent);
+     color:var(--accent2)}
+  h3{margin:32px 0 10px;font-size:17.5px}
+  h4{margin:22px 0 8px;font-size:15px;color:var(--ink2)}
+  code{font-family:var(--mono);background:#eaf1f6;padding:1.5px 5px;border-radius:4px;
+       font-size:13px;color:#0a5c50}
+  pre{background:#0d1a20;color:#d8e8e4;padding:16px 18px;border-radius:8px;overflow-x:auto;
+      font-family:var(--mono);font-size:12.7px;line-height:1.62;border:1px solid #1b3038}
+  pre .c{color:#78968f}
+  table{border-collapse:collapse;width:100%;margin:16px 0;background:var(--card);
+        border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:13.6px}
+  th,td{padding:8px 11px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#e9f2f0;font-weight:600;color:#123f39;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(even){background:#fbfdfc}
+  td.num,th.num{text-align:right;font-family:var(--mono);font-size:12.9px;white-space:nowrap}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+        padding:18px 22px;margin:18px 0;box-shadow:0 1px 2px rgba(16,32,56,.04)}
+  .kv{display:grid;grid-template-columns:210px 1fr;gap:6px 16px;font-size:14px}
+  .kv dt{color:var(--ink2);font-weight:600}
+  .kv dd{margin:0}
+  .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600}
+  .b-ok{background:#e0f4ee;color:var(--ok);border:1px solid #b4e0d4}
+  .b-warn{background:#fdf1e0;color:var(--warn);border:1px solid #f3d3a3}
+  .b-bad{background:#fdecec;color:var(--bad);border:1px solid #f5c1c1}
+  .b-info{background:#e8f0fd;color:var(--blue2);border:1px solid #c2d9fb}
+  .note{border-left:4px solid var(--accent);background:#eef8f5;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .warnbox{border-left:4px solid var(--warn);background:#fff8ee;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .badbox{border-left:4px solid var(--bad);background:#fff3f3;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .bluebox{border-left:4px solid var(--blue);background:#f0f6ff;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:10px;
+       padding:16px 26px;margin:26px 0}
+  .toc ol{margin:6px 0 0;padding-left:20px}
+  .toc a{color:var(--accent2);text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  .toc > ol > li{margin:4px 0;font-weight:600}
+  .bar{display:flex;align-items:center;gap:10px;margin:5px 0;font-size:13.2px}
+  .bar .lbl{width:230px;flex:0 0 230px;color:var(--ink2)}
+  .bar .track{flex:1;height:19px;background:#e8eeec;border-radius:4px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:4px}
+  .bar .val{width:150px;flex:0 0 150px;text-align:right;font-family:var(--mono);font-size:12.6px}
+  .small{font-size:12.8px;color:var(--ink2)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:880px){.two{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
+  hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
+  .verdict{display:flex;align-items:center;gap:16px;background:#e8f7f1;border:1px solid #b4e0d4;
+       border-radius:10px;padding:18px 22px;margin:18px 0}
+  .verdict .big{font-size:34px;font-weight:800;color:var(--ok);letter-spacing:.5px}
+  .scroll{max-height:640px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+  .scroll table{margin:0;border:none}
+  .scroll th{position:sticky;top:0;z-index:1}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="inner">
+    <h1>去畸变 UndistortionV1 —— TRT 推理 测试与验收报告</h1>
+    <div class="sub">
+      对 <code style="background:rgba(255,255,255,.16);color:#fff">undist_api.dll</code>（变体 F，fp32）
+      在 <code style="background:rgba(255,255,255,.16);color:#fff">demo/raw</code> 全量 40 张图上做
+      逐像素验收，并对 pageable / pinned 暂存 / pinned 零拷贝 / 纯 kernel 四种口径做同条件计时。
+      验收基准为 <code style="background:rgba(255,255,255,.16);color:#fff">demo/output0</code>
+      的 CPU Release 产物。
+    </div>
+    <div class="tags">
+      <span class="tag">验收 PASS · 40/40 图</span>
+      <span class="tag">差异 5.86×10⁻⁶ · 最大 ±1 LSB</span>
+      <span class="tag">零拷贝 2.892 ms/图 · 22.1× CPU</span>
+      <span class="tag">kernel 1.198 ms · 表带宽 210 GB/s</span>
+      <span class="tag">C# 16/16 契约用例通过</span>
+      <span class="tag">报告版本 1.0 / 2026-10-26</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="toc">
+  <b>目录</b>
+  <ol>
+    <li><a href="#s1">结论摘要</a></li>
+    <li><a href="#s2">测试环境与口径</a></li>
+    <li><a href="#s3">验收结果（40 图逐像素）</a></li>
+    <li><a href="#s4">性能结果</a></li>
+    <li><a href="#s5">pageable vs pinned 内存搬运专章</a></li>
+    <li><a href="#s6">与 CPU 版本的一致性分析</a></li>
+    <li><a href="#s7">C# 封装验证</a></li>
+    <li><a href="#s8">异常与边界用例</a></li>
+    <li><a href="#s9">复现步骤</a></li>
+    <li><a href="#s10">结论与建议</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s1">1. 结论摘要</h2>
+
+<div class="verdict">
+  <div class="big">PASS</div>
+  <div>
+    <b>40/40 张图全部满足验收阈值。</b>
+    合计 838,860,800 个位置中差异 4,914 个（5.858×10⁻⁶），最大绝对差 1 LSB，
+    差 ≥2 的像素 0 个，最差 PSNR 99.47 dB；重复推理逐位确定。
+  </div>
+</div>
+
+<table>
+  <thead><tr><th style="width:56px">编号</th><th>验收项</th><th>阈值</th><th>实测</th><th>结论</th></tr></thead>
+  <tbody>
+    <tr><td>A1</td><td>最大绝对差</td><td>≤ 1</td><td>1</td><td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>A2</td><td>差异像素比例</td><td>≤ 1×10⁻⁵</td><td>5.858×10⁻⁶</td><td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>A3</td><td>差 ≥ 2 的像素</td><td>= 0</td><td>0</td><td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>A4</td><td>最差图 PSNR</td><td>≥ 60 dB</td><td>99.47 dB</td><td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>A5</td><td>重复推理确定性</td><td>逐位相同</td><td>相同</td><td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>B1</td><td>C ABI 契约用例</td><td>9/9</td><td>9/9</td><td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>B2</td><td>C# 封装自测</td><td>16/16</td><td>16/16</td><td><span class="badge b-ok">PASS</span></td></tr>
+  </tbody>
+</table>
+
+<div class="card">
+  <div class="kv">
+    <dt>单图性能（工程推荐）</dt><dd><b>2.892 ms</b>（调用方常驻 pinned，零拷贝），345.7 图/s</dd>
+    <dt>单图性能（Mat 默认）</dt><dd>4.944 ms（库内 pinned 暂存），202.3 图/s</dd>
+    <dt>纯 kernel</dt><dd>1.198 ms，表带宽 210 GB/s</dd>
+    <dt>CPU 基准</dt><dd>63.82 ms（V0 Release，单线程，内存进内存出）</dd>
+    <dt>加速比</dt><dd>零拷贝 <b>22.1×</b> · Mat 默认 <b>12.9×</b> · kernel <b>53.3×</b></dd>
+    <dt>初始化</dt><dd>2.225 s（表 2.075 s + 引擎缓存 0.150 s）；冷构建引擎另加 3.6 s</dd>
+    <dt>显存 / 页锁主机</dt><dd>293.6 MB / 41.9 MB（库内暂存时）</dd>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s2">2. 测试环境与口径</h2>
+
+<div class="two">
+<div class="card">
+  <h4 style="margin-top:0">硬件 / 软件</h4>
+  <table>
+    <tbody>
+      <tr><th>GPU</th><td>NVIDIA GeForce RTX 5060 Laptop GPU（8 GiB，26 SM）</td></tr>
+      <tr><th>驱动</th><td>581.57</td></tr>
+      <tr><th>TensorRT</th><td>10.14.1.48</td></tr>
+      <tr><th>CUDA</th><td>12.8 (12.8.61)</td></tr>
+      <tr><th>CPU / OS</th><td>Windows 11 · MSVC 19.44 Release</td></tr>
+      <tr><th>OpenCV</th><td>4.12.0（仅测试程序 BMP I/O）</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="card">
+  <h4 style="margin-top:0">数据与口径</h4>
+  <table>
+    <tbody>
+      <tr><th>输入</th><td><code>demo/raw</code> 40 张 5120×4096 灰度 BMP（各 20 MiB）</td></tr>
+      <tr><th>基准</th><td><code>demo/output0</code>（CPU V0 Release 产物）</td></tr>
+      <tr><th>输出</th><td><code>demo/output-trt</code> 40 张 BMP</td></tr>
+      <tr><th>计时口径</th><td>内存进 → 内存出，不含文件 I/O；每段结束流同步（串行）</td></tr>
+      <tr><th>迭代</th><td>每图 1 次 warmup + 5 次计时；pageable/零拷贝各 8 图 × 5 次</td></tr>
+      <tr><th>引擎</th><td>缓存热加载（37.1 KB），排除构建时间对推理的影响</td></tr>
+    </tbody>
+  </table>
+</div>
+</div>
+
+<div class="warnbox">
+  <b>与 UNDIST-002 原型口径的差异：</b>原型（<code>trt_undistort.py</code>）的 0.9765 ms 是
+  「图已在显存、只算 kernel」；本报告把 H2D/D2H、主机拷贝都拆开单列，因此直接对比时应看
+  <b>kernel 1.198 ms</b> 与本报告的 S0 口径，而不是拿 2.892 ms 去比 0.9765 ms。
+</div>
+
+<p class="small">
+  说明：计时为一次代表性运行；RTX 5060 Laptop 受时钟/后台负载影响，kernel 与端到端有约 ±10% 波动
+  （本工程多次运行 kernel 0.99–1.21 ms、零拷贝 2.73–2.89 ms）。验收结论与路径排序稳定，
+  但不要把小数末位当作硬指标。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="s3">3. 验收结果（40 图逐像素）</h2>
+
+<h3>3.1 汇总</h3>
+<table>
+  <thead><tr><th>指标</th><th class="num">值</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>图像数 / 总位置</td><td class="num">40 / 838,860,800</td><td>5120×4096×40</td></tr>
+    <tr><td>差异像素合计</td><td class="num">4,914</td><td>全部为 ±1</td></tr>
+    <tr><td>差异比例</td><td class="num">5.858×10⁻⁶</td><td>阈值 1×10⁻⁵，余量 1.7×</td></tr>
+    <tr><td>单图差异范围</td><td class="num">96 – 154</td><td>均值 122.85</td></tr>
+    <tr><td>最大绝对差</td><td class="num">1</td><td>无 ≥2</td></tr>
+    <tr><td>最差 PSNR</td><td class="num">99.47 dB</td><td>PIC_2_1.bmp（差异最多）</td></tr>
+    <tr><td>逐位相同图数</td><td class="num">0 / 40</td><td>每张都有少量 FMA 末位差异，属预期</td></tr>
+  </tbody>
+</table>
+
+<h3>3.2 逐图明细</h3>
+<p class="small">按文件名排序；<code>diff</code>=差异像素数，<code>max</code>=最大绝对差，
+<code>ge2</code>=差 ≥2 的像素数，<code>total</code>=该图 5 次计时均值（库内 pinned 暂存口径）。</p>
+<div class="scroll">
+<table>
+  <thead><tr><th>#</th><th>文件</th><th class="num">diff</th><th class="num">max</th>
+      <th class="num">ge2</th><th class="num">MAE</th><th class="num">PSNR (dB)</th><th class="num">total (ms)</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td>PIC_1_1.bmp</td><td class="num">128</td><td class="num">1</td><td class="num">0</td><td class="num">6.104E-006</td><td class="num">100.28</td><td class="num">4.720</td></tr>
+    <tr><td class="num">2</td><td>PIC_1_10.bmp</td><td class="num">144</td><td class="num">1</td><td class="num">0</td><td class="num">6.866E-006</td><td class="num">99.76</td><td class="num">4.975</td></tr>
+    <tr><td class="num">3</td><td>PIC_1_2.bmp</td><td class="num">111</td><td class="num">1</td><td class="num">0</td><td class="num">5.293E-006</td><td class="num">100.89</td><td class="num">5.077</td></tr>
+    <tr><td class="num">4</td><td>PIC_1_3.bmp</td><td class="num">101</td><td class="num">1</td><td class="num">0</td><td class="num">4.816E-006</td><td class="num">101.30</td><td class="num">4.857</td></tr>
+    <tr><td class="num">5</td><td>PIC_1_4.bmp</td><td class="num">102</td><td class="num">1</td><td class="num">0</td><td class="num">4.864E-006</td><td class="num">101.26</td><td class="num">4.797</td></tr>
+    <tr><td class="num">6</td><td>PIC_1_5.bmp</td><td class="num">103</td><td class="num">1</td><td class="num">0</td><td class="num">4.911E-006</td><td class="num">101.22</td><td class="num">4.846</td></tr>
+    <tr><td class="num">7</td><td>PIC_1_6.bmp</td><td class="num">105</td><td class="num">1</td><td class="num">0</td><td class="num">5.007E-006</td><td class="num">101.14</td><td class="num">4.923</td></tr>
+    <tr><td class="num">8</td><td>PIC_1_7.bmp</td><td class="num">101</td><td class="num">1</td><td class="num">0</td><td class="num">4.816E-006</td><td class="num">101.30</td><td class="num">4.991</td></tr>
+    <tr><td class="num">9</td><td>PIC_1_8.bmp</td><td class="num">96</td><td class="num">1</td><td class="num">0</td><td class="num">4.578E-006</td><td class="num">101.52</td><td class="num">4.932</td></tr>
+    <tr><td class="num">10</td><td>PIC_1_9.bmp</td><td class="num">103</td><td class="num">1</td><td class="num">0</td><td class="num">4.911E-006</td><td class="num">101.22</td><td class="num">4.881</td></tr>
+    <tr><td class="num">11</td><td>PIC_2_1.bmp</td><td class="num">154</td><td class="num">1</td><td class="num">0</td><td class="num">7.343E-006</td><td class="num">99.47</td><td class="num">4.811</td></tr>
+    <tr><td class="num">12</td><td>PIC_2_10.bmp</td><td class="num">142</td><td class="num">1</td><td class="num">0</td><td class="num">6.771E-006</td><td class="num">99.82</td><td class="num">4.757</td></tr>
+    <tr><td class="num">13</td><td>PIC_2_2.bmp</td><td class="num">145</td><td class="num">1</td><td class="num">0</td><td class="num">6.914E-006</td><td class="num">99.73</td><td class="num">5.015</td></tr>
+    <tr><td class="num">14</td><td>PIC_2_3.bmp</td><td class="num">154</td><td class="num">1</td><td class="num">0</td><td class="num">7.343E-006</td><td class="num">99.47</td><td class="num">4.938</td></tr>
+    <tr><td class="num">15</td><td>PIC_2_4.bmp</td><td class="num">124</td><td class="num">1</td><td class="num">0</td><td class="num">5.913E-006</td><td class="num">100.41</td><td class="num">5.117</td></tr>
+    <tr><td class="num">16</td><td>PIC_2_5.bmp</td><td class="num">137</td><td class="num">1</td><td class="num">0</td><td class="num">6.533E-006</td><td class="num">99.98</td><td class="num">4.892</td></tr>
+    <tr><td class="num">17</td><td>PIC_2_6.bmp</td><td class="num">135</td><td class="num">1</td><td class="num">0</td><td class="num">6.437E-006</td><td class="num">100.04</td><td class="num">5.059</td></tr>
+    <tr><td class="num">18</td><td>PIC_2_7.bmp</td><td class="num">147</td><td class="num">1</td><td class="num">0</td><td class="num">7.010E-006</td><td class="num">99.67</td><td class="num">4.868</td></tr>
+    <tr><td class="num">19</td><td>PIC_2_8.bmp</td><td class="num">136</td><td class="num">1</td><td class="num">0</td><td class="num">6.485E-006</td><td class="num">100.01</td><td class="num">4.805</td></tr>
+    <tr><td class="num">20</td><td>PIC_2_9.bmp</td><td class="num">151</td><td class="num">1</td><td class="num">0</td><td class="num">7.200E-006</td><td class="num">99.56</td><td class="num">4.915</td></tr>
+    <tr><td class="num">21</td><td>PIC_3_1.bmp</td><td class="num">119</td><td class="num">1</td><td class="num">0</td><td class="num">5.674E-006</td><td class="num">100.59</td><td class="num">4.930</td></tr>
+    <tr><td class="num">22</td><td>PIC_3_10.bmp</td><td class="num">118</td><td class="num">1</td><td class="num">0</td><td class="num">5.627E-006</td><td class="num">100.63</td><td class="num">5.095</td></tr>
+    <tr><td class="num">23</td><td>PIC_3_2.bmp</td><td class="num">114</td><td class="num">1</td><td class="num">0</td><td class="num">5.436E-006</td><td class="num">100.78</td><td class="num">4.874</td></tr>
+    <tr><td class="num">24</td><td>PIC_3_3.bmp</td><td class="num">106</td><td class="num">1</td><td class="num">0</td><td class="num">5.054E-006</td><td class="num">101.09</td><td class="num">5.093</td></tr>
+    <tr><td class="num">25</td><td>PIC_3_4.bmp</td><td class="num">97</td><td class="num">1</td><td class="num">0</td><td class="num">4.625E-006</td><td class="num">101.48</td><td class="num">5.089</td></tr>
+    <tr><td class="num">26</td><td>PIC_3_5.bmp</td><td class="num">110</td><td class="num">1</td><td class="num">0</td><td class="num">5.245E-006</td><td class="num">100.93</td><td class="num">5.036</td></tr>
+    <tr><td class="num">27</td><td>PIC_3_6.bmp</td><td class="num">119</td><td class="num">1</td><td class="num">0</td><td class="num">5.674E-006</td><td class="num">100.59</td><td class="num">4.869</td></tr>
+    <tr><td class="num">28</td><td>PIC_3_7.bmp</td><td class="num">146</td><td class="num">1</td><td class="num">0</td><td class="num">6.962E-006</td><td class="num">99.70</td><td class="num">4.999</td></tr>
+    <tr><td class="num">29</td><td>PIC_3_8.bmp</td><td class="num">120</td><td class="num">1</td><td class="num">0</td><td class="num">5.722E-006</td><td class="num">100.56</td><td class="num">4.677</td></tr>
+    <tr><td class="num">30</td><td>PIC_3_9.bmp</td><td class="num">134</td><td class="num">1</td><td class="num">0</td><td class="num">6.390E-006</td><td class="num">100.08</td><td class="num">4.725</td></tr>
+    <tr><td class="num">31</td><td>STEP_1_1.bmp</td><td class="num">146</td><td class="num">1</td><td class="num">0</td><td class="num">6.962E-006</td><td class="num">99.70</td><td class="num">5.028</td></tr>
+    <tr><td class="num">32</td><td>STEP_1_10.bmp</td><td class="num">153</td><td class="num">1</td><td class="num">0</td><td class="num">7.296E-006</td><td class="num">99.50</td><td class="num">4.889</td></tr>
+    <tr><td class="num">33</td><td>STEP_1_2.bmp</td><td class="num">119</td><td class="num">1</td><td class="num">0</td><td class="num">5.674E-006</td><td class="num">100.59</td><td class="num">4.980</td></tr>
+    <tr><td class="num">34</td><td>STEP_1_3.bmp</td><td class="num">125</td><td class="num">1</td><td class="num">0</td><td class="num">5.960E-006</td><td class="num">100.38</td><td class="num">5.185</td></tr>
+    <tr><td class="num">35</td><td>STEP_1_4.bmp</td><td class="num">112</td><td class="num">1</td><td class="num">0</td><td class="num">5.341E-006</td><td class="num">100.86</td><td class="num">4.867</td></tr>
+    <tr><td class="num">36</td><td>STEP_1_5.bmp</td><td class="num">113</td><td class="num">1</td><td class="num">0</td><td class="num">5.388E-006</td><td class="num">100.82</td><td class="num">4.973</td></tr>
+    <tr><td class="num">37</td><td>STEP_1_6.bmp</td><td class="num">117</td><td class="num">1</td><td class="num">0</td><td class="num">5.579E-006</td><td class="num">100.67</td><td class="num">4.892</td></tr>
+    <tr><td class="num">38</td><td>STEP_1_7.bmp</td><td class="num">113</td><td class="num">1</td><td class="num">0</td><td class="num">5.388E-006</td><td class="num">100.82</td><td class="num">5.053</td></tr>
+    <tr><td class="num">39</td><td>STEP_1_8.bmp</td><td class="num">105</td><td class="num">1</td><td class="num">0</td><td class="num">5.007E-006</td><td class="num">101.14</td><td class="num">5.031</td></tr>
+    <tr><td class="num">40</td><td>STEP_1_9.bmp</td><td class="num">109</td><td class="num">1</td><td class="num">0</td><td class="num">5.198E-006</td><td class="num">100.97</td><td class="num">5.283</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s4">4. 性能结果</h2>
+
+<h3>4.1 初始化</h3>
+<table>
+  <thead><tr><th>阶段</th><th class="num">耗时</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>矩阵加载 + 紧凑表构建</td><td class="num">2,075 ms</td><td>读 12 个 .bin（1 GB）、分块转置、掩码、fu/fv</td></tr>
+    <tr><td>引擎加载（缓存）</td><td class="num">150 ms</td><td>反序列化 37.1 KB；冷构建为 3.6 s</td></tr>
+    <tr><td>表上传显存</td><td class="num">27 ms</td><td>251.7 MB，约 8.4 GB/s（cudaMemcpy，含首次页表建立）</td></tr>
+    <tr><td>页锁暂存分配</td><td class="num">&lt;1 ms</td><td>2 × 20 MiB cudaHostAlloc</td></tr>
+    <tr><td><b>合计</b></td><td class="num"><b>2,225 ms</b></td><td>与 <code>undist_info.init_total_ms</code> 一致</td></tr>
+  </tbody>
+</table>
+
+<h3>4.2 四种口径</h3>
+<table>
+  <thead><tr><th>口径</th><th class="num">H2D</th><th class="num">kernel</th><th class="num">D2H</th>
+      <th class="num">主机拷贝</th><th class="num">合计 mean / p50 / p90</th><th class="num">图/s</th><th class="num">vs CPU</th></tr></thead>
+  <tbody>
+    <tr><td>pageable 直传</td><td class="num">1.913</td><td class="num">1.292</td><td class="num">2.698</td>
+        <td class="num">0</td><td class="num">5.904 / 5.339 / 8.891</td><td class="num">169.4</td><td class="num">10.8×</td></tr>
+    <tr><td>库内 pinned 暂存</td><td class="num">0.780</td><td class="num">1.172</td><td class="num">0.777</td>
+        <td class="num">2.051</td><td class="num">4.944 / 4.933 / 5.256</td><td class="num">202.3</td><td class="num">12.9×</td></tr>
+    <tr><td>调用方 pinned 零拷贝</td><td class="num">0.770</td><td class="num">1.354</td><td class="num">0.768</td>
+        <td class="num">0</td><td class="num">2.892 / 2.812 / 3.315</td><td class="num">345.7</td><td class="num">22.1×</td></tr>
+    <tr><td>仅 kernel</td><td class="num">0</td><td class="num">1.198</td><td class="num">0</td>
+        <td class="num">0</td><td class="num">1.198</td><td class="num">834.7</td><td class="num">53.3×</td></tr>
+  </tbody>
+</table>
+<p class="small">单位 ms；n = 200（pinned 暂存）/ 40（pageable、零拷贝、kernel）。</p>
+
+<div class="bar"><span class="lbl">pageable 直传</span>
+  <div class="track"><div class="fill" style="width:100%;background:#c0392b"></div></div>
+  <span class="val">5.904 ms · 169/s</span></div>
+<div class="bar"><span class="lbl">库内 pinned 暂存</span>
+  <div class="track"><div class="fill" style="width:83.7%;background:#d68910"></div></div>
+  <span class="val">4.944 ms · 202/s</span></div>
+<div class="bar"><span class="lbl">调用方 pinned 零拷贝</span>
+  <div class="track"><div class="fill" style="width:49.0%;background:#1f6feb"></div></div>
+  <span class="val">2.892 ms · 346/s</span></div>
+<div class="bar"><span class="lbl">仅 kernel</span>
+  <div class="track"><div class="fill" style="width:20.3%;background:#0f7b6c"></div></div>
+  <span class="val">1.198 ms · 835/s</span></div>
+
+<h3>4.3 kernel 是否已打满带宽</h3>
+<p>
+  表 251.66 MB，kernel 1.198 ms → 表带宽 <b>210 GB/s</b>；把输入/输出 41.9 MB 也算上，
+  实际总线流量 293.6 MB → <b>245 GB/s</b>，约为机型标定峰值 298 GB/s 的 <b>82%</b>。
+  该 kernel 有 4 次不规则 gather，比纯拷贝低约 18% 属正常；继续提速的唯一杠杆是缩小表或做 batch
+  （见 §5.5），不是换 tactic。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="s5">5. pageable vs pinned 内存搬运专章</h2>
+
+<h3>5.1 机制回顾</h3>
+<div class="two">
+<div class="card">
+  <h4 style="margin-top:0">GPU · pageable 内存搬运</h4>
+  <ul class="small">
+    <li>源/目的是普通可分页内存（<code>new</code>、<code>std::vector</code>、托管数组、<code>cv::Mat</code>）。</li>
+    <li>GPU 的 DMA 引擎不能直接访问可换出页，驱动必须先准备一块<b>页锁中转缓冲</b>：
+        CPU 把数据拷进中转 → DMA 上卡；回读反之。</li>
+    <li>因此一次 H2D 实际包含「一次额外主机拷贝 + 一次 DMA」，D2H 也一样；同步 API 还要等全程完成。</li>
+    <li>表现：带宽只有 pinned 的 40–50%，D2H 尾延迟抖动大（本报告 p90 5.62 ms）。</li>
+  </ul>
+</div>
+<div class="card">
+  <h4 style="margin-top:0">GPU · pinned 内存搬运（工程推荐值）</h4>
+  <ul class="small">
+    <li>用 <code>cudaHostAlloc</code> 或 <code>cudaHostRegister</code> 让物理页常驻、不可换出。</li>
+    <li>DMA 直接读写主机物理地址，<b>没有中转拷贝</b>；<code>cudaMemcpyAsync</code> 真正异步。</li>
+    <li>单帧理论时间 = H2D + kernel + D2H ≈ 0.77 + 1.20 + 0.77 ≈ <b>2.7–2.9 ms</b>。</li>
+    <li>代价：不可换出的物理内存；注册/分配毫秒级，必须复用；过量会拖慢整机。</li>
+  </ul>
+</div>
+</div>
+
+<h3>5.2 同条件实测（同一 ctx / 引擎 / stream，只换缓冲）</h3>
+<table>
+  <thead><tr><th>路径</th><th class="num">H2D</th><th class="num">kernel</th><th class="num">D2H</th>
+      <th class="num">主机拷贝</th><th class="num">合计</th><th>PCIe 占比</th><th>相对 pageable</th></tr></thead>
+  <tbody>
+    <tr><td>pageable 直传</td><td class="num">1.913</td><td class="num">1.292</td><td class="num">2.698</td>
+        <td class="num">0</td><td class="num">5.904</td><td class="num">78.1%</td><td class="num">1.00×</td></tr>
+    <tr><td>库内 pinned 暂存</td><td class="num">0.780</td><td class="num">1.172</td><td class="num">0.777</td>
+        <td class="num">2.051</td><td class="num">4.944</td><td class="num">31.5%</td><td class="num">1.19×</td></tr>
+    <tr><td>调用方 pinned 零拷贝</td><td class="num">0.770</td><td class="num">1.354</td><td class="num">0.768</td>
+        <td class="num">0</td><td class="num">2.892</td><td class="num">53.2%</td><td class="num"><b>2.04×</b></td></tr>
+  </tbody>
+</table>
+
+<h4>分解与换算</h4>
+<table>
+  <thead><tr><th>指标</th><th class="num">pageable</th><th class="num">pinned</th><th>推算</th></tr></thead>
+  <tbody>
+    <tr><td>单程 H2D 等效带宽</td><td class="num">11.0 GB/s</td><td class="num">27.2 GB/s</td>
+        <td>20.97 MB ÷ 时间；pinned 接近 PCIe 4.0 x8 可用带宽</td></tr>
+    <tr><td>单程 D2H 等效带宽</td><td class="num">7.8 GB/s</td><td class="num">27.3 GB/s</td>
+        <td>D2H 在 pageable 下损耗更大</td></tr>
+    <tr><td>H2D 倍率 / D2H 倍率</td><td class="num">—</td><td class="num">2.45× / 3.47×</td>
+        <td>pageable 的 H2D 与 D2H 分别被中转拖慢</td></tr>
+  </tbody>
+</table>
+
+<h3>5.3 三个反直觉点（含逻辑分析）</h3>
+<ol>
+  <li>
+    <b>「库内 pinned 暂存」只比 pageable 快 19%。</b>
+    4.944 vs 5.904 ms。原因是：把 21 MB 从普通页拷进 pinned 需要约 1.0 ms（读+写各 21 MB），
+    一去一回 2.05 ms；这几乎正好等于驱动自己在中转缓冲上多花的钱。
+    所以「只是把 cudaMemcpy 的源换成 pinned」并不自动变快，<b>关键是数据是否本来就在 pinned 里</b>。
+  </li>
+  <li>
+    <b>pageable 的 D2H 比 H2D 更贵（2.698 vs 1.913 ms）。</b>
+    回读要等 GPU 完成、把结果从中转缓冲拷回用户页，WDDM 下还要处理页驻留；
+    实测 p90 5.62 ms、max 5.94 ms，尾延迟是它不适合实时链路的核心理由。
+  </li>
+  <li>
+    <b>零拷贝路径的 kernel 反而略慢（1.354 vs 1.292 ms）。</b>
+    这是测量顺序/时钟抖动，不是 pinned 影响 kernel；三次独立运行 kernel 区间为
+    1.03–1.35 ms，与 <code>bench_kernel</code> 的 1.198 ms 一致。看总量时不要把这 5% 当成机制差异。
+  </li>
+</ol>
+
+<h3>5.4 C# 侧的关键发现：POH 不是页锁内存</h3>
+<div class="badbox">
+  <b>第一版：</b><code>GC.AllocateArray&lt;byte&gt;(n, pinned:true)</code> + <code>GCHandle(Pinned)</code>
+  → 零拷贝路径 <b>5.929 ms</b>（与 pageable 持平）。<br>
+  <b>原因：</b>POH/GCHandle 只保证 GC 不移动对象，物理页仍可换出；CUDA 按 pageable 处理。<br>
+  <b>修正：</b>构造时 <code>cudaHostRegister</code>（导出 <code>undist_host_register</code>），
+  析构时 <code>cudaHostUnregister</code> → <b>2.764 ms</b>（2.15×）。
+</div>
+<p>
+  这条经验对所有「C# + CUDA」封装都成立：托管层的「pinned」与 CUDA 的「pinned」不是同一个概念，
+  必须显式注册。
+</p>
+
+<h3>5.5 工程推荐值与结论</h3>
+<table>
+  <thead><tr><th>部署形态</th><th class="num">每帧</th><th class="num">相对 CPU</th><th>推荐度</th><th>适用条件</th></tr></thead>
+  <tbody>
+    <tr><td>GPU 直采 / 图已在显存</td><td class="num">1.20 ms</td><td class="num">53×</td>
+        <td><span class="badge b-ok">首选</span></td><td>去畸变紧跟采集，零 PCIe</td></tr>
+    <tr><td>调用方常驻 pinned 零拷贝</td><td class="num">2.89 ms</td><td class="num">22×</td>
+        <td><span class="badge b-ok">推荐</span></td><td>采集线程直接写 pinned，缓冲复用</td></tr>
+    <tr><td>库内 pinned 暂存（Mat 默认）</td><td class="num">4.94 ms</td><td class="num">12.9×</td>
+        <td><span class="badge b-warn">通用</span></td><td>既有 Mat 管线，零改造</td></tr>
+    <tr><td>pageable 直传</td><td class="num">5.90 ms</td><td class="num">10.8×</td>
+        <td><span class="badge b-bad">不推荐</span></td><td>仅兼容/对照</td></tr>
+  </tbody>
+</table>
+<div class="note">
+  <b>结论：</b>单图实时链路请按 <b>2.9 ms/图（pinned 常驻 + 零拷贝）</b> 设计；
+  若上游只能给普通内存，按 <b>4.9 ms/图</b> 计价。不要用 kernel 的 1.2 ms 对外承诺端到端指标，
+  也不要指望「库内自动 staging」能带来接近零拷贝的收益。批量场景若要摊薄 252 MB 表带宽，
+  必须走自定义 plugin/CUDA kernel（UNDIST-002 预估 B=8 时 0.25 ms/图），本版本未实现。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s6">6. 与 CPU 版本的一致性分析</h2>
+
+<h3>6.1 差异来源</h3>
+<table>
+  <thead><tr><th>来源</th><th>量级</th><th>影响</th></tr></thead>
+  <tbody>
+    <tr><td>权重重建（fu/fv 乘积 vs A1..A4 查表）</td><td>≤ 1.19×10⁻⁷</td><td>对 uint8 量化几乎不可见</td></tr>
+    <tr><td>GPU FMA 融合（4 项乘加）</td><td>~1e-7 相对</td><td>仅 clamp/+0.5 边界附近的像素翻转 1 LSB</td></tr>
+    <tr><td>CPU 自身 FMA vs mul+add</td><td>5.44×10⁻⁶（UNDIST-002）</td><td>与本工程 5.86×10⁻⁶ 同量级</td></tr>
+  </tbody>
+</table>
+<p>
+  因此「0/40 逐位相同」是预期结果，不代表实现有偏差：把 CPU 自己换一种等价求和顺序，
+  也会得到同一量级的差异。真正需要守住的是「差 ≥2 = 0」和「差异比例 ≤1e-5」，两项都满足。
+</p>
+
+<h3>6.2 与原型数据交叉验证</h3>
+<table>
+  <thead><tr><th>数据源</th><th>图像数</th><th class="num">差异像素</th><th class="num">比例</th><th class="num">最大差</th></tr></thead>
+  <tbody>
+    <tr><td>UNDIST-002 原型（变体 F）</td><td>3</td><td class="num">383</td><td class="num">6.09×10⁻⁶</td><td class="num">1</td></tr>
+    <tr><td>本工程 C++（40 图）</td><td>40</td><td class="num">4,914</td><td class="num">5.86×10⁻⁶</td><td class="num">1</td></tr>
+    <tr><td>本工程 C#（前 3 图）</td><td>3</td><td class="num">383</td><td class="num">6.09×10⁻⁶</td><td class="num">1</td></tr>
+    <tr><td>CPU V0 FMA vs mul+add（参考）</td><td>3</td><td class="num">—</td><td class="num">5.44×10⁻⁶</td><td class="num">1</td></tr>
+  </tbody>
+</table>
+<p>
+  C# 的 383 与原型完全一致，说明「C ABI → C# 封装」这一层没有引入任何额外数值差异；
+  40 图合计 4,914 与 383×40/3 ≈ 5,107 同量级，符合「每图约 123 个边界像素」的分布。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="s7">7. C# 封装验证</h2>
+
+<h3>7.1 契约用例（16/16）</h3>
+<table>
+  <thead><tr><th>#</th><th>用例</th><th>结果</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><code>info_dims</code></td><td><span class="badge b-ok">PASS</span></td><td>5120×4096</td></tr>
+    <tr><td>2</td><td><code>info_table_12bpp</code></td><td><span class="badge b-ok">PASS</span></td><td>12.0 B/px</td></tr>
+    <tr><td>3</td><td><code>info_table_bytes</code></td><td><span class="badge b-ok">PASS</span></td><td>251,658,240</td></tr>
+    <tr><td>4</td><td><code>info_device_bytes</code></td><td><span class="badge b-ok">PASS</span></td><td>293,601,280 = 14 B/px</td></tr>
+    <tr><td>5</td><td><code>info_gpu_name</code></td><td><span class="badge b-ok">PASS</span></td><td>RTX 5060 Laptop</td></tr>
+    <tr><td>6</td><td><code>info_trt_version</code></td><td><span class="badge b-ok">PASS</span></td><td>10.14.1</td></tr>
+    <tr><td>7</td><td><code>entry_bytes_equal_mat</code></td><td><span class="badge b-ok">PASS</span></td><td>byte[] 与 Mat 入口逐位一致</td></tr>
+    <tr><td>8</td><td><code>entry_pinned_equal_mat</code></td><td><span class="badge b-ok">PASS</span></td><td>PinnedBuffer 与 Mat 入口逐位一致</td></tr>
+    <tr><td>9</td><td><code>mode_pageable_restore</code></td><td><span class="badge b-ok">PASS</span></td><td>切回 pinned 生效</td></tr>
+    <tr><td>10</td><td><code>deterministic_5_runs</code></td><td><span class="badge b-ok">PASS</span></td><td>5 次输出逐位相同</td></tr>
+    <tr><td>11</td><td><code>dispose_then_use_throws</code></td><td><span class="badge b-ok">PASS</span></td><td>ObjectDisposedException</td></tr>
+    <tr><td>12</td><td><code>dispose_idempotent</code></td><td><span class="badge b-ok">PASS</span></td><td>重复 Dispose 安全</td></tr>
+    <tr><td>13</td><td><code>error_matrix_missing</code></td><td><span class="badge b-ok">PASS</span></td><td>空目录 → -6</td></tr>
+    <tr><td>14</td><td><code>error_wrong_size</code></td><td><span class="badge b-ok">PASS</span></td><td>尺寸不符 → ArgumentException</td></tr>
+    <tr><td>15</td><td><code>error_null_src</code></td><td><span class="badge b-ok">PASS</span></td><td>null → ArgumentNullException</td></tr>
+    <tr><td>16</td><td><code>error_channels</code></td><td><span class="badge b-ok">PASS</span></td><td>CV_8UC3 → ArgumentException</td></tr>
+  </tbody>
+</table>
+
+<h3>7.2 C# 侧性能</h3>
+<table>
+  <thead><tr><th>口径</th><th class="num">mean</th><th class="num">p50</th><th class="num">p90</th><th class="num">H2D</th><th class="num">kernel</th><th class="num">D2H</th></tr></thead>
+  <tbody>
+    <tr><td>pinned 暂存（Mat）</td><td class="num">5.107</td><td class="num">5.085</td><td class="num">5.463</td>
+        <td class="num">0.772</td><td class="num">1.224</td><td class="num">0.778</td></tr>
+    <tr><td>pageable</td><td class="num">6.128</td><td class="num">4.799</td><td class="num">9.598</td>
+        <td class="num">1.886</td><td class="num">1.206</td><td class="num">3.035</td></tr>
+    <tr><td>pinned 零拷贝</td><td class="num">2.764</td><td class="num">2.712</td><td class="num">3.002</td>
+        <td class="num">0.776</td><td class="num">1.142</td><td class="num">0.846</td></tr>
+    <tr><td>kernel-only</td><td class="num">1.063</td><td class="num">—</td><td class="num">—</td>
+        <td class="num">0</td><td class="num">1.063</td><td class="num">0</td></tr>
+  </tbody>
+</table>
+<p class="small">
+  C# pageable 的 p50 4.80 与 mean 6.13 差很大，说明 pageable D2H 偶发长尾（p90 9.60 ms）——
+  这正是建议实时链路避免 pageable 的实测依据。表中均为 native timing；
+  C# 托管侧（Mat/数组转换）开销未计入，Sample 观测到首调用另有约 0.8 ms（含 JIT/首次分配），
+  稳态以 native timing 为准。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="s8">8. 异常与边界用例</h2>
+
+<h3>8.1 C++ ABI 契约（9/9）</h3>
+<table>
+  <thead><tr><th>用例</th><th class="num">期望</th><th class="num">实际</th><th>结论</th></tr></thead>
+  <tbody>
+    <tr><td>create_null_dir</td><td class="num">-11</td><td class="num">-11</td><td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>create_missing_dir（并校验 error 非空）</td><td class="num">-6</td><td class="num">-6</td><td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>create_wrong_size（64×64）</td><td class="num">-7</td><td class="num">-7</td><td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>create_channels3</td><td class="num">-10</td><td class="num">-10</td><td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>process_null_dst</td><td class="num">-3</td><td class="num">-3</td><td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>process_bad_stride</td><td class="num">-3</td><td class="num">-3</td><td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>set_memory_mode_invalid(7)</td><td class="num">-11</td><td class="num">-11</td><td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>get_info_null</td><td class="num">-11</td><td class="num">-11</td><td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>release_null</td><td class="num">0</td><td class="num">0</td><td><span class="badge b-ok">PASS</span></td></tr>
+  </tbody>
+</table>
+
+<h3>8.2 数值边界</h3>
+<table>
+  <thead><tr><th>项</th><th>实测</th><th>结论</th></tr></thead>
+  <tbody>
+    <tr><td>越界像素（4 抽头不全在界内）</td><td>350,805 / 20,971,520 = 1.6728%</td>
+        <td>与 V0 <code>reference_check.json</code> 完全一致</td></tr>
+    <tr><td>越界输出</td><td>全部为 0（与 CPU 一致）</td><td><span class="badge b-ok">一致</span></td></tr>
+    <tr><td>行跨距 ≠ 宽度</td><td>stride 校验 + 按行拷贝</td><td><span class="badge b-ok">支持</span></td></tr>
+    <tr><td>重复 5 次推理</td><td>输出逐位相同</td><td><span class="badge b-ok">确定</span></td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s9">9. 复现步骤</h2>
+<pre><span class="c"># 环境：VS2022 / CUDA 12.8 / TensorRT 10.14.1.48 / OpenCV 4.12 / .NET 8</span>
+cd Algorithms\undistortionV1
+
+<span class="c"># 1) 原生库 + C++ 验收程序</span>
+powershell -ExecutionPolicy Bypass -File scripts\build_native.ps1
+
+<span class="c"># 2) 40 图全量验收（结果写 demo\output-trt，报告写 document\data）</span>
+powershell -ExecutionPolicy Bypass -File scripts\run_acceptance.ps1
+
+<span class="c"># 3) C# 封装自测（前 3 图 + 16 项契约）</span>
+powershell -ExecutionPolicy Bypass -File scripts\run_selftest.ps1
+
+<span class="c"># 4) 单图样例</span>
+csharp\Sample\bin\Release\net8.0\Sample.exe --matrix ..\undistortion_standaloneV0\botong25 ^
+  --image ..\undistortion_standaloneV0\demo\raw\PIC_1_1.bmp --cache trt\build\cache\undist_F_5120x4096.engine
+</pre>
+<p class="small">
+  首次运行会构建并缓存引擎（约 3.6 s）；后续从 <code>trt\build\cache</code> 加载（约 150 ms）。
+  删除该缓存即可复现冷启动路径。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="s10">10. 结论与建议</h2>
+
+<div class="note">
+  <b>验收结论：</b>UndistortionV1 的 TRT 推理结果与 CPU Release 版本在 40 张 5120×4096 全量数据上
+  满足「最大 ±1 LSB、差异比例 ≤1e-5、无 ≥2 差异、PSNR ≥60 dB、重复确定」五项判据，
+  <b>验收通过</b>。C ABI 与 C# 封装契约、错误路径、生命周期均通过用例。
+</div>
+
+<h3>10.1 部署建议</h3>
+<ol>
+  <li><b>实时链路</b>：用调用方常驻 pinned 缓冲 + 零拷贝，按 2.9 ms/图 设计；
+      每路相机固定 2 块 20 MiB 页锁缓冲，循环复用。</li>
+  <li><b>已有 Mat 管线</b>：直接用默认 <code>Process(Mat)</code>，按 4.9 ms/图 计价；
+      不要为「pinned」再包一层临时拷贝，收益接近 0。</li>
+  <li><b>更高吞吐</b>：把去畸变放到 GPU 节点（图不落主机），可到 1.2 ms/图；
+      多相机/批量场景需要 batch plugin（本版未实现）。</li>
+  <li><b>发布包</b>：引擎随包发布（37 KB），运行时链接 lean 版 TensorRT 可显著减小体积；
+      注意引擎与 GPU 架构 + TRT 版本绑定。</li>
+  <li><b>启动耗时</b>：2.2 s 主要花在 1 GB 矩阵读取；若不可接受，离线生成
+      <code>idx0/fu/fv</code> 后只做 H2D（目标 &lt;300 ms）。</li>
+</ol>
+
+<h3>10.2 后续工作（按优先级）</h3>
+<table>
+  <thead><tr><th>优先级</th><th>项</th><th>收益</th></tr></thead>
+  <tbody>
+    <tr><td>P1</td><td>离线表产物 + 启动只加载三张表</td><td>初始化 2.2 s → &lt;0.3 s</td></tr>
+    <tr><td>P1</td><td>发布形态改 lean 运行时</td><td>去掉 412 MB 的 builder 依赖</td></tr>
+    <tr><td>P2</td><td>batch plugin（B=8）</td><td>0.25 ms/图（预估），摊薄表带宽</td></tr>
+    <tr><td>P2</td><td>多实例共享表（table-owner + context pool）</td><td>多相机显存占用下降</td></tr>
+    <tr><td>P3</td><td>3 通道输入</td><td>彩色相机免拆通道</td></tr>
+    <tr><td>P3</td><td>fp16 表</td><td><b>否决</b>：实测差异 6.8% 像素，超出验收</td></tr>
+  </tbody>
+</table>
+
+<hr>
+<p class="small">
+  设计与实现说明见
+  <code>UNDIST-101-去畸变UndistortionV1_TRT推理与CSharp封装_设计与实现_20261026.html</code>；
+  原始数据：<code>document/data/acceptance_report.json</code>、
+  <code>acceptance_per_image.csv</code>、<code>csharp_selftest.json</code>。
+</p>
+
+</div>
+</body>
+</html>

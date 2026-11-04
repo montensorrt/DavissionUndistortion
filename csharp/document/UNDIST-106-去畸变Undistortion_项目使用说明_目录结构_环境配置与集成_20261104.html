@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>去畸变 Undistortion —— 项目使用说明：目录结构 / 依赖分类 / 环境配置 / 文档索引</title>
+<style>
+  :root{
+    --ink:#16202b; --ink2:#43535f; --line:#dde4ec; --bg:#f5f8fb; --card:#fff;
+    --accent:#0f7b6c; --accent2:#0a5c50; --blue:#1f6feb; --blue2:#0b4ea2;
+    --ok:#177f4b; --warn:#b45309; --bad:#b91c1c;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+       line-height:1.72;font-size:15px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px 96px}
+  header.hero{background:linear-gradient(135deg,#062f28 0%,#0d5145 52%,#0f7b6c 100%);
+       color:#fff;padding:52px 28px 44px;margin-bottom:34px}
+  header.hero .inner{max-width:1180px;margin:0 auto}
+  header.hero h1{margin:0 0 10px;font-size:31px;letter-spacing:.4px;font-weight:700}
+  header.hero .sub{opacity:.93;font-size:15.5px;max-width:960px}
+  header.hero .tags{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+  header.hero .tag{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+       padding:4px 11px;border-radius:999px;font-size:12.5px}
+  h2{margin:52px 0 14px;font-size:23px;padding-bottom:9px;border-bottom:2px solid var(--accent);
+     color:var(--accent2)}
+  h3{margin:32px 0 10px;font-size:17.5px}
+  h4{margin:22px 0 8px;font-size:15px;color:var(--ink2)}
+  code{font-family:var(--mono);background:#eaf1f6;padding:1.5px 5px;border-radius:4px;
+       font-size:13px;color:#0a5c50}
+  pre{background:#0d1a20;color:#d8e8e4;padding:16px 18px;border-radius:8px;overflow-x:auto;
+      font-family:var(--mono);font-size:12.7px;line-height:1.62;border:1px solid #1b3038}
+  pre .c{color:#78968f}
+  pre .k{color:#6fc9b8}
+  pre .s{color:#a5d6a7}
+  table{border-collapse:collapse;width:100%;margin:16px 0;background:var(--card);
+        border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:13.6px}
+  th,td{padding:8px 11px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#e9f2f0;font-weight:600;color:#123f39;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(even){background:#fbfdfc}
+  td.num,th.num{text-align:right;font-family:var(--mono);font-size:12.9px;white-space:nowrap}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+        padding:18px 22px;margin:18px 0;box-shadow:0 1px 2px rgba(16,32,56,.04)}
+  .kv{display:grid;grid-template-columns:200px 1fr;gap:6px 16px;font-size:14px}
+  .kv dt{color:var(--ink2);font-weight:600}
+  .kv dd{margin:0}
+  .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600}
+  .b-ok{background:#e0f4ee;color:var(--ok);border:1px solid #b4e0d4}
+  .b-warn{background:#fdf1e0;color:var(--warn);border:1px solid #f3d3a3}
+  .b-bad{background:#fdecec;color:var(--bad);border:1px solid #f5c1c1}
+  .b-info{background:#e8f0fd;color:var(--blue2);border:1px solid #c2d9fb}
+  .note{border-left:4px solid var(--accent);background:#eef8f5;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .warnbox{border-left:4px solid var(--warn);background:#fff8ee;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .badbox{border-left:4px solid var(--bad);background:#fff3f3;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .bluebox{border-left:4px solid var(--blue);background:#f0f6ff;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:10px;
+       padding:16px 26px;margin:26px 0}
+  .toc ol{margin:6px 0 0;padding-left:20px}
+  .toc a{color:var(--accent2);text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  .toc > ol > li{margin:4px 0;font-weight:600}
+  .small{font-size:12.8px;color:var(--ink2)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:880px){.two{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
+  hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
+  .tree{background:#0d1a20;color:#d8e8e4;border-radius:8px;padding:18px 20px;overflow-x:auto;
+        font-family:var(--mono);font-size:12.4px;line-height:1.68}
+  .tree .d{color:#6fc9b8}
+  .tree .n{color:#f0b862}
+  .tree .x{color:#78968f}
+  .tree .r{color:#f08a8a}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="inner">
+    <h1>去畸变 Undistortion —— 项目使用说明</h1>
+    <div class="sub">
+      一份给“接这个项目的人”看的文档：<b>目录长什么样</b>、<b>依赖分三类怎么装</b>、
+      <b>客户端怎么接</b>、<b>出问题先看哪张表</b>、<b>其余文档在哪</b>。
+      依赖三分类是核心结论 ——
+      <b>① 能装系统的装系统</b>（TensorRT / CUDA / VC++ 运行时）、
+      <b>② 能走 NuGet 的走 NuGet</b>（OpenCvSharp）、
+      <b>③ 只有我们自己造的才进 <code style="background:rgba(255,255,255,.16);color:#fff">csharp/thirdpart</code></b>
+      （<code>undist_api.dll</code>）。
+    </div>
+    <div class="tags">
+      <span class="tag">交付层：Mat 进 → Mat 出，6 个公开成员</span>
+      <span class="tag">init 8.5 s（含引擎现场构建 6.7 s）· 单帧 4.94 ms</span>
+      <span class="tag">40 图验收 PASS · 5.858×10⁻⁶ · ±1 LSB</span>
+      <span class="tag">TRT 10.14.1.48 · CUDA 12.8 · OpenCvSharp 4.13.0.20260627</span>
+      <span class="tag">版本 1.0 / 2026-11-04</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="toc">
+  <b>目录</b>
+  <ol>
+    <li><a href="#s1">一页读懂（30 秒版）</a></li>
+    <li><a href="#s2">项目目录与结构</a></li>
+    <li><a href="#s3">依赖三分类（核心）</a></li>
+    <li><a href="#s4">环境配置：从零到能跑</a></li>
+    <li><a href="#s5">使用说明</a></li>
+    <li><a href="#s6">常见问题速查</a></li>
+    <li><a href="#s7">文档索引与阅读顺序</a></li>
+    <li><a href="#s8">验收记录</a></li>
+    <li><a href="#s9">约定与边界</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s1">1. 一页读懂（30 秒版）</h2>
+
+<div class="card">
+  <div class="kv">
+    <dt>这是什么</dt>
+    <dd>把 CPU 去畸变改成 TensorRT 推理：<b>一个原生 DLL</b>（<code>undist_api.dll</code>，C ABI）
+        + <b>一个 .NET 8 类库</b>（<code>Undistortion.Inference</code>，Mat 进 Mat 出）
+        + <b>两个可执行程序</b>（最小测试 / 验收工具）。</dd>
+
+    <dt>依赖怎么装（三句话）</dt>
+    <dd>
+      <b>① 系统安装</b>：TensorRT 10.14.1.48、CUDA 12.8、VC++ 2015-2022 x64 运行时 → 装到系统 + 配 <code>PATH</code>；<br>
+      <b>② NuGet</b>：<code>OpenCvSharp4</code> / <code>OpenCvSharp4.runtime.win</code> 4.13.0.20260627 → <code>PackageReference</code> 自动还原；<br>
+      <b>③ 我们自己造的</b>：<code>undist_api.dll</code> → 已在 <code>csharp/thirdpart/</code>，拷走即用。
+    </dd>
+
+    <dt>上位机接入三步</dt>
+    <dd>① 引用 <code>Undistortion.Inference.dll</code>（或引用项目）；
+        ② 把 <code>thirdpart/undist_api.dll</code> 放到宿主 exe 同目录；
+        ③ 保证 <code>PATH</code> 里有 TensorRT / CUDA 的 <code>bin</code>。
+        <b>不需要</b>装 VS / CMake / CUDA SDK，<b>不需要</b>编译本项目任何代码。</dd>
+
+    <dt>最小代码</dt>
+    <dd><code>UndistortionConfig</code>（4 字段）→ <code>new Undistorter(config)</code> →
+        <code>Process(src)</code> → <code>Dispose</code>。没有配置文件、没有日志开关、没有缓存开关。</dd>
+
+    <dt>五个命令</dt>
+    <dd><code>build_native.ps1</code> 构建原生 · <code>run_test.ps1</code> 最小验证 ·
+        <code>run_verify.ps1</code> 40 图验收 · <code>run_acceptance.ps1</code> 原生四口径 ·
+        <code>undist_batch.py</code> 数据集批处理。</dd>
+  </div>
+</div>
+
+<div class="note">
+  <b>为什么强调“三分类”：</b>三类依赖的<b>体积、许可、更新方式</b>完全不同 ——
+  TensorRT 全套 2.8 GB 且受 NVIDIA 许可约束（不能进 git），OpenCvSharp 有 65 MB 原生件（走 NuGet 才不会漏），
+  只有 <code>undist_api.dll</code>（88 KB）是我们自己的、必须随源码走。混在一起放一个目录，是部署事故的常见起点。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s2">2. 项目目录与结构</h2>
+
+<h3>2.1 完整目录树</h3>
+
+<div class="tree">
+<span class="d">Algorithms/undistortion/</span>
+├── <span class="n">README.md</span>                         <span class="x"># 一页纸：定位 / 目录 / 构建 / C# 速览 / 结论</span>
+├── <span class="n">.gitignore</span>                        <span class="x"># 上传规则（第三方大件一律不入库）</span>
+│
+├── <span class="d">csharp/</span>                           <span class="x"># ★ .NET 8 交付层（一个解决方案，三个项目）</span>
+│   ├── <span class="n">Undistortion.sln</span>
+│   ├── <span class="n">Directory.Build.props</span>          <span class="x"># 公共属性 + 原生 DLL 自动定位/拷贝（trt\build → thirdpart）</span>
+│   │
+│   ├── <span class="d">Undistortion.Inference/</span>        <span class="x"># 【主项目】类库：Mat 进 → Mat 出</span>
+│   │   ├── <span class="n">UndistortionConfig.cs</span>         <span class="x"># ★ 初始化参数结构体（唯一配置，4 字段）</span>
+│   │   ├── <span class="n">Undistorter.cs</span>                <span class="x"># 句柄生命周期 + Process 两个重载</span>
+│   │   ├── <span class="n">UndistortionInfo.cs</span>           <span class="x"># Info（尺寸/表/显存/GPU/TRT）+ Timing</span>
+│   │   ├── <span class="n">UndistortionException.cs</span>      <span class="x"># 原生错误码异常</span>
+│   │   ├── <span class="n">NativeMethods.cs</span>             <span class="x"># 5 个 P/Invoke + 结构体 + 错误码</span>
+│   │   └── <span class="n">Undistortion.Inference.csproj</span> <span class="x"># OpenCvSharp4 4.13.0.20260627</span>
+│   │
+│   ├── <span class="d">Undistortion.Test/</span>             <span class="x"># 【测试项目】最小调用链（读图→初始化→执行→释放，85 行）</span>
+│   │   └── <span class="n">Program.cs</span>
+│   │
+│   ├── <span class="d">Undistortion.Tools/</span>            <span class="x"># 【工具项目】批量验收 + 与 CPU 参考图逐像素比对</span>
+│   │   ├── <span class="n">Program.cs</span>                   <span class="x"># verify 子命令 + JSON 报告</span>
+│   │   └── <span class="n">ImageComparer.cs</span>              <span class="x"># Diff / Max / Ge2 / MAE / PSNR</span>
+│   │
+│   ├── <span class="d">thirdpart/</span>                     <span class="x"># ★ 第三类依赖：我们自己生成的原生库</span>
+│   │   ├── <span class="n">undist_api.dll</span>            <span class="x"># 88 KB，CMake 产物，拷走即用（入库）</span>
+│   │   └── <span class="n">README.md</span>                     <span class="x"># 依赖清单 / SHA256 / 同步方式 / 禁放清单</span>
+│   │
+│   └── <span class="d">document/</span>                      <span class="x"># ★ C# 侧文档（本文档就在这儿）</span>
+│       ├── <span class="n">UNDIST-106-…项目使用说明….html</span>
+│       ├── <span class="n">UNDIST-107-…最小开始（Test 调用说明）….html</span>
+│       └── <span class="n">UNDIST-108-…第三方库安装指南….html</span>
+│
+├── <span class="d">trt/</span>                              <span class="x"># 原生库源码（CMake + Ninja + MSVC x64）</span>
+│   ├── <span class="n">CMakeLists.txt</span>
+│   ├── <span class="d">include/</span>  <span class="n">undist_api.h</span> / <span class="n">undist_tables.h</span> / <span class="n">undist_engine.h</span>
+│   ├── <span class="d">src/</span>      <span class="n">undist_api.cpp</span> / <span class="n">undist_tables.cpp</span> / <span class="n">undist_engine.cpp</span>
+│   └── <span class="d">tests/</span>    <span class="n">test_undist_api.cpp</span>      <span class="x"># 原生四口径验收程序（非交付）</span>
+│
+├── <span class="d">scripts/</span>                          <span class="x"># 构建 / 测试 / 验收 / 批处理</span>
+│   ├── <span class="n">_env.ps1</span>                       <span class="x"># 把 TRT / CUDA bin 加进 PATH（被下面脚本引用）</span>
+│   ├── <span class="n">build_native.ps1</span>               <span class="x"># CMake 构建 + 自动同步 DLL 到 csharp\thirdpart</span>
+│   ├── <span class="n">run_test.ps1</span>                   <span class="x"># 构建 C# + 跑最小调用</span>
+│   ├── <span class="n">run_verify.ps1</span>                 <span class="x"># 40 图验收比对（写 document/data/csharp_verify.json）</span>
+│   ├── <span class="n">run_acceptance.ps1</span>             <span class="x"># 原生四口径全量验收</span>
+│   └── <span class="n">undist_batch.py</span>                <span class="x"># 数据集按子目录批处理（离线）</span>
+│
+├── <span class="d">document/</span>                         <span class="x"># 101~105 + 实测数据</span>
+│   ├── <span class="n">UNDIST-101…104.html</span>            <span class="x"># 设计 / 验收报告 / 内存搬运 / C# 接口全量参考</span>
+│   ├── <span class="n">UNDIST-105-…项目梳理….html</span>     <span class="x"># 结构梳理 + 保留/去除 + 配置/日志/缓存策略</span>
+│   ├── <span class="d">assets/</span>                     <span class="x"># 效果图（jpg）</span>
+│   └── <span class="d">data/</span>                       <span class="x"># acceptance_report.json / csharp_verify.json / CSV</span>
+│
+└── <span class="d">prompt/</span>                           <span class="x"># 需求归档（方案分析 / 部署 API / 批量耗时）</span>
+</div>
+
+<h3>2.2 三个 C# 项目各干什么</h3>
+
+<table>
+  <thead><tr><th>项目</th><th>类型</th><th>职责</th><th>给谁用</th></tr></thead>
+  <tbody>
+    <tr><td><code>Undistortion.Inference</code></td><td>类库（net8.0）</td>
+        <td>唯一的交付面：结构体参数 → 原生句柄 → Mat 互转 → 异常映射</td>
+        <td>上位机 / 其他 C# 项目</td></tr>
+    <tr><td><code>Undistortion.Test</code></td><td>控制台</td>
+        <td>最小调用链，验证“拷过去就能跑”；只有 <code>--image</code> 必填（矩阵默认 <code>&lt;exe&gt;\botong25</code>）</td>
+        <td>交付冒烟 / 现场自检</td></tr>
+    <tr><td><code>Undistortion.Tools</code></td><td>控制台</td>
+        <td>批量去畸变 + 与 CPU 参考目录逐像素比对 + PASS/FAIL + JSON 报告</td>
+        <td>验收 / 回归</td></tr>
+  </tbody>
+</table>
+
+<h3>2.3 编译产物落在哪</h3>
+<pre>csharp/Undistortion.Inference/bin/Release/net8.0/
+    Undistortion.Inference.dll        <span class="c">// 交给上位机的就是它（+ .xml）</span>
+    undist_api.dll                    <span class="c">// Directory.Build.props 自动拷进来的原生库</span>
+    OpenCvSharp.dll                   <span class="c">// NuGet 还原</span>
+    runtimes/win-x64/native/
+        OpenCvSharpExtern.dll         <span class="c">// 65 MB，RID 目录，别手工拷漏</span></pre>
+
+<!-- ============================================================ -->
+<h2 id="s3">3. 依赖三分类（核心）</h2>
+
+<h3>3.1 分类原则</h3>
+
+<table>
+  <thead><tr><th>类别</th><th>判定</th><th>本项目</th><th>落点</th><th>更新方式</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge b-info">①</span> 系统安装</td>
+        <td>体积大 / 受厂商许可约束 / 与驱动·GPU 强绑定</td>
+        <td>TensorRT 10.14.1.48、CUDA 12.8、VC++ 2015-2022 x64</td>
+        <td>系统目录（<code>C:\Program Files\NVIDIA GPU Computing Toolkit\…</code>）</td>
+        <td>官方安装包 + <code>PATH</code></td></tr>
+    <tr><td><span class="badge b-ok">②</span> NuGet</td>
+        <td>有托管包 + 原生件按 RID 分发</td>
+        <td>OpenCvSharp4 / OpenCvSharp4.runtime.win</td>
+        <td>全局包缓存 → 输出目录</td>
+        <td><code>PackageReference</code> 自动还原</td></tr>
+    <tr><td><span class="badge b-warn">③</span> thirdpart</td>
+        <td>我们自己构建、但客户端不应重新构建</td>
+        <td><code>undist_api.dll</code>（88 KB）</td>
+        <td><code>csharp/thirdpart/</code></td>
+        <td><code>build_native.ps1</code> 自动同步（入库）</td></tr>
+  </tbody>
+</table>
+
+<h3>3.2 ① 系统安装：TensorRT / CUDA / VC++ 运行时</h3>
+
+<table>
+  <thead><tr><th>组件</th><th>版本</th><th>装完的位置</th><th>必需文件（举例）</th></tr></thead>
+  <tbody>
+    <tr><td>TensorRT</td><td>10.14.1.48</td>
+        <td><code>C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT\v10.14.1.48\bin</code></td>
+        <td><code>nvinfer_10.dll</code>（412 MB）<br>
+            <code>nvinfer_builder_resource_sm120_10.dll</code>（360 MB，<b>必须</b>，见 5.4）</td></tr>
+    <tr><td>CUDA</td><td>12.8</td>
+        <td><code>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\bin</code></td>
+        <td><code>cudart64_12.dll</code></td></tr>
+    <tr><td>VC++ 运行时</td><td>2015-2022 x64</td><td>System32</td>
+        <td><code>MSVCP140.dll</code> / <code>VCRUNTIME140.dll</code> / <code>VCRUNTIME140_1.dll</code></td></tr>
+  </tbody>
+</table>
+
+<p>配 <code>PATH</code>（<b>上位机部署必须做</b>，缺了就是 <code>DllNotFoundException</code>）：</p>
+
+<pre><span class="c"># 临时（当前进程/会话）</span>
+$env:PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT\v10.14.1.48\bin;" +
+            "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\bin;" + $env:PATH
+
+<span class="c"># 永久（机器级，需管理员；部署脚本里做一次即可）</span>
+[Environment]::SetEnvironmentVariable('PATH',
+  "C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT\v10.14.1.48\bin;" +
+  "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\bin;" +
+  [Environment]::GetEnvironmentVariable('PATH','Machine'), 'Machine')</pre>
+
+<div class="note">
+  <b>为什么这两个不能进 thirdpart：</b><code>nvinfer_10.dll</code> 单个 412 MB，超过 GitHub 单文件
+  100 MB 硬限制（push 直接被拒）；TensorRT 的 <code>bin</code> 全套 2.8 GB（各 GPU 架构的
+  builder resource 加起来）；而且 NVIDIA 的二进制不适合随源码仓库分发。
+</div>
+
+<h4>3.2.1 不需要的库：cuDNN / cuBLAS / plugin / dispatch（实测）</h4>
+
+<div class="card">
+  <div class="kv">
+    <dt>结论</dt>
+    <dd><b>本项目不需要 cuDNN，也不需要 cuBLAS。</b>
+        <code>nvinfer_plugin_10.dll</code>（50.7 MB）与 <code>nvinfer_dispatch_10.dll</code>（0.6 MB）同样不需要。</dd>
+
+    <dt>为什么</dt>
+    <dd>TensorRT 8.0 起 cuDNN 已<b>不是硬依赖</b>：只有用到 Conv/Deconv、RNNv2/LSTM 这类层，
+        或命中 cuDNN tactic 时，才会在运行期 <code>LoadLibrary</code> 它。
+        本项目的网络只有 <b>Gather / ElementWise / Cast / Constant / Concatenation / Activation(CLIP) / Unary(FLOOR)</b>
+        —— 没有卷积、没有 RNN、没有 plugin、没有 DLA，所以一次都不会加载 cuDNN。</dd>
+
+    <dt>证据 1：静态依赖</dt>
+    <dd><code>dumpbin /dependents nvinfer_10.dll</code> 只列出
+        <code>KERNEL32 / USER32 / SHELL32 / ole32 / ADVAPI32</code> —— <b>没有 cudnn、没有 cublas</b>
+        （它们是运行期动态加载的，所以静态导入里本来就不该出现）；<br>
+        <code>undist_api.dll</code> 的直接依赖只有 <code>nvinfer_10</code> / <code>cudart64_12</code> / VC 运行时。</dd>
+
+    <dt>证据 2：隔离实测</dt>
+    <dd>把程序放进沙箱目录，<b>只</b>放 4 个 DLL：<code>undist_api</code> + <code>nvinfer_10</code> +
+        <code>nvinfer_builder_resource_sm120_10</code> + <code>cudart64_12</code>，并把
+        <code>PATH</code> 收窄成 <code>C:\Windows\system32;C:\Windows</code>
+        （cuDNN 在 <code>CUDA\v12.8\bin</code>，此时既不在沙箱也不在 PATH）。<br>
+        结果：<b>exit=0</b>，引擎现场构建 + 推理 + 出图全部成功，进程 9.9 s。
+        <span class="small">（本机其实装了 cuDNN，所以“我这能跑”不能当证据，这个隔离测试才能。）</span></dd>
+
+    <dt>千万别多拷</dt>
+    <dd><code>cudnn_engines_precompiled64_9.dll</code> 单个 448 MB、<code>cudnn_adv64_9.dll</code> 257 MB、
+        <code>cudnn_ops64_9.dll</code> 101 MB —— 拷进来纯属白占 1 GB 磁盘，且毫无作用。</dd>
+
+    <dt>什么时候才需要</dt>
+    <dd>将来网络里加了卷积/RNN（或换模型、加 cuDNN 系 plugin）才需要 cuDNN 9.x
+        （TRT 10.14 对应 cuDNN 9），届时按<b>第①类：系统安装</b>处理，<b>不要</b>放进 <code>thirdpart</code>。</dd>
+  </div>
+</div>
+
+<h4>3.2.2 精确的最小依赖集（实测）</h4>
+
+<table>
+  <thead><tr><th>文件</th><th class="num">体积</th><th>必需</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>undist_api.dll</code></td><td class="num">88 KB</td><td><span class="badge b-ok">必需</span></td>
+        <td>我们自己的原生库（<code>thirdpart</code>）</td></tr>
+    <tr><td><code>nvinfer_10.dll</code></td><td class="num">412 MB</td><td><span class="badge b-ok">必需</span></td>
+        <td>TensorRT 运行时</td></tr>
+    <tr><td><code>nvinfer_builder_resource_sm120_10.dll</code></td><td class="num">360 MB</td>
+        <td><span class="badge b-ok">必需</span></td>
+        <td><b>因为交付层不缓存引擎</b>，每次启动都要构建；缺了 → <code>EngineBuild(-9)</code></td></tr>
+    <tr><td><code>cudart64_12.dll</code></td><td class="num">0.57 MB</td><td><span class="badge b-ok">必需</span></td>
+        <td>CUDA 运行时</td></tr>
+    <tr><td>VC++ 2015-2022 x64 运行库</td><td class="num">—</td><td><span class="badge b-ok">必需</span></td>
+        <td><code>MSVCP140 / VCRUNTIME140 / VCRUNTIME140_1</code></td></tr>
+    <tr><td><code>cudnn*_9.dll</code>（整套）</td><td class="num">≈1 GB</td><td><span class="badge b-bad">不需要</span></td>
+        <td>本网络无 Conv/RNN（见 3.2.1）</td></tr>
+    <tr><td><code>cublas64_12 / cublasLt64_12</code></td><td class="num">768 MB</td>
+        <td><span class="badge b-bad">不需要</span></td><td>隔离测试未带，照常构建与推理</td></tr>
+    <tr><td><code>nvinfer_plugin_10.dll</code></td><td class="num">50.7 MB</td><td><span class="badge b-bad">不需要</span></td>
+        <td>无自定义 plugin</td></tr>
+    <tr><td><code>nvinfer_dispatch_10.dll</code></td><td class="num">0.6 MB</td>
+        <td><span class="badge b-bad">不需要</span></td><td>实测移除后 exit=0</td></tr>
+    <tr><td><code>nvinfer_lean_10.dll</code></td><td class="num">43.2 MB</td><td><span class="badge b-bad">不需要</span></td>
+        <td>lean runtime 是另一条线</td></tr>
+    <tr><td><code>nvonnxparser_10.dll</code></td><td class="num">2.9 MB</td><td><span class="badge b-bad">不需要</span></td>
+        <td>直接建网络，不解析 ONNX</td></tr>
+  </tbody>
+</table>
+
+<p class="small">
+  换算成“绿色目录”体积：93.9 MB（我们 + OpenCvSharp）+ 412 MB + 360 MB + 0.57 MB ≈
+  <b>866 MB</b>（比带 dispatch 时少 0.6 MB）。
+</p>
+
+<h3>3.3 ② NuGet：OpenCvSharp</h3>
+
+<p>版本锁定在类库 csproj 里，宿主只要引用类库就自动带上：</p>
+
+<pre><span class="c">&lt;!-- csharp/Undistortion.Inference/Undistortion.Inference.csproj --&gt;</span>
+<span class="k">&lt;PackageReference</span> Include=<span class="s">"OpenCvSharp4"</span> Version=<span class="s">"4.13.0.20260627"</span> <span class="k">/&gt;</span>
+<span class="k">&lt;PackageReference</span> Include=<span class="s">"OpenCvSharp4.runtime.win"</span> Version=<span class="s">"4.13.0.20260627"</span> <span class="k">/&gt;</span></pre>
+
+<table>
+  <thead><tr><th>文件</th><th class="num">体积</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>OpenCvSharp.dll</code></td><td class="num">0.96 MB</td><td>托管封装（<code>Mat</code> 等）</td></tr>
+    <tr><td><code>OpenCvSharpExtern.dll</code></td><td class="num">65.4 MB</td>
+        <td>原生桥，位于 <code>runtimes/win-x64/native/</code>；<b>手工拷 DLL 最容易漏这个</b></td></tr>
+    <tr><td><code>opencv_videoio_ffmpeg4130_64.dll</code></td><td class="num">27.3 MB</td>
+        <td>视频 I/O，本项目不用，但随包分发</td></tr>
+  </tbody>
+</table>
+
+<div class="warnbox">
+  <b>上位机很可能自己也在用 OpenCvSharp。</b>两边版本必须一致（本项目锁 <b>4.13.0.20260627</b>）。
+  上位机已有同版本 → 让它自己还原，别重复拷贝；版本不一致 → 会出现类型/绑定上的诡异问题，
+  先统一版本再谈别的。
+</div>
+
+<h3>3.4 ③ thirdpart：<code>undist_api.dll</code></h3>
+
+<table>
+  <thead><tr><th>项</th><th>值</th></tr></thead>
+  <tbody>
+    <tr><td>位置</td><td><code>csharp/thirdpart/undist_api.dll</code></td></tr>
+    <tr><td>来源</td><td><code>trt/</code>（CMake + Ninja + MSVC x64）→ <code>trt/build/undist_api.dll</code></td></tr>
+    <tr><td>大小 / SHA256</td>
+        <td>88,064 B / <code>9BF3B8CD…996C11DE</code>（完整值见 <code>thirdpart/README.md</code>）</td></tr>
+    <tr><td>直接依赖</td>
+        <td><code>nvinfer_10.dll</code>、<code>cudart64_12.dll</code>、<code>MSVCP140/VCRUNTIME140(_1)</code>（dumpbin 实测）</td></tr>
+    <tr><td>同步方式</td>
+        <td><code>scripts/build_native.ps1</code> 构建成功后<b>自动</b>覆盖到这里（防双源真相）</td></tr>
+    <tr><td>为什么入库</td>
+        <td>客户端不装 VS/CMake/CUDA SDK，靠这一个文件就能跑；88 KB，可接受</td></tr>
+    <tr><td>禁止放这里</td>
+        <td><code>nvinfer*</code>、<code>cudart*</code>、<code>OpenCvSharpExtern.dll</code>（见 3.2 / 3.3）</td></tr>
+  </tbody>
+</table>
+
+<p>构建期自动定位顺序（<code>csharp/Directory.Build.props</code>）：</p>
+<pre><span class="c">// 1) 开发期刚构建的（最新）      2) VS 生成器产物        3) 交付快照（客户端没有 CMake 时）</span>
+trt\build\undist_api.dll  →  trt\build\Release\undist_api.dll  →  csharp\thirdpart\undist_api.dll</pre>
+
+<h3>3.5 体积账（实测）</h3>
+
+<table>
+  <thead><tr><th>交付形态</th><th class="num">客户端体积</th><th>包含什么</th></tr></thead>
+  <tbody>
+    <tr><td>A. 客户端已装 TensorRT/CUDA + 配 PATH</td><td class="num">93.9 MB</td>
+        <td><code>dotnet publish</code> 产物（12 文件：我们的 dll + undist_api + OpenCvSharp 三件套）</td></tr>
+    <tr><td>B. 绿色目录（所有 DLL 同 exe 目录）</td><td class="num">866 MB</td>
+        <td>A + <code>nvinfer_10</code>(412) + builder_sm120(360) + <code>cudart</code>(0.57)；
+            <b>不含</b> cuDNN / cuBLAS / plugin / dispatch（见 3.2.1）</td></tr>
+    <tr><td>C. 最小运行（预置 .engine，不现场构建）</td><td class="num">≈ 507 MB</td>
+        <td>93.9 MB + <code>nvinfer_10</code>(412) + <code>cudart</code>，省掉 360 MB builder</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s4">4. 环境配置：从零到能跑</h2>
+
+<h3>4.1 开发机（要改代码 / 重编原生库）</h3>
+
+<table>
+  <thead><tr><th>组件</th><th>版本</th><th>用途</th></tr></thead>
+  <tbody>
+    <tr><td>Visual Studio 2022（MSVC）</td><td>19.44 / v14.44</td><td>编译原生库（x64，<code>/O2 /MD</code>）</td></tr>
+    <tr><td>CMake + Ninja</td><td>CMake 4.x（VS 自带 Ninja）</td><td><code>build_native.ps1</code> 使用</td></tr>
+    <tr><td>CUDA Toolkit</td><td>12.8</td><td>编译期 + 运行期</td></tr>
+    <tr><td>TensorRT</td><td>10.14.1.48</td><td>编译期头文件/导入库 + 运行期</td></tr>
+    <tr><td>OpenCV（仅 C++ 验收程序）</td><td>4.12，路径 <code>E:\3rdparty\opencv\build</code></td><td><code>run_acceptance.ps1</code> 的 BMP I/O</td></tr>
+    <tr><td>.NET SDK</td><td>8.0 目标（9.x SDK 也可以）</td><td>C# 构建</td></tr>
+  </tbody>
+</table>
+
+<h3>4.2 客户端 / 上位机（只是用，不改代码）</h3>
+
+<div class="two">
+  <div class="card">
+    <h4>必需</h4>
+    <ul style="margin:6px 0;padding-left:20px">
+      <li>.NET 8 运行时（或上位机自带，只要目标框架兼容 net8.0）</li>
+      <li>TensorRT 10.14.1.48 + CUDA 12.8（<b>装系统 + PATH</b>）</li>
+      <li>VC++ 2015-2022 x64 运行时</li>
+      <li>显卡驱动（支持 sm_120 等本机架构）</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>随包带走</h4>
+    <ul style="margin:6px 0;padding-left:20px">
+      <li><code>Undistortion.Inference.dll</code>（+ <code>.xml</code>）</li>
+      <li><code>undist_api.dll</code>（→ 宿主 exe 同目录）</li>
+      <li>OpenCvSharp（NuGet 还原，或从发布包拷贝）</li>
+    </ul>
+  </div>
+</div>
+
+<h3>4.3 一键自检（环境是否就绪）</h3>
+
+<pre><span class="c"># 1) 依赖是否可加载（应输出 GPU 名 / 26 SM / TRT 10.14.1）</span>
+powershell -ExecutionPolicy Bypass -File scripts\run_test.ps1
+
+<span class="c"># 预期输出</span>
+in    : …\demo\raw\PIC_1_1.bmp (5120x4096, CV_8UC1)
+info  : 5120x4096 x1, table=240.0 MB (12.0 B/px), device=280.0 MB, staging=pinned,
+        gpu=NVIDIA GeForce RTX 5060 Laptop GPU (26 SM), trt=10.14.1
+timing: h2d=0.803 infer=1.207 d2h=0.783 total=9.963 ms</pre>
+
+<p class="small">
+  首次运行约 <b>8.5 s</b>（表 1.4 s + 引擎现场构建 6.7 s），之后每帧 ≈5 ms。看到 <code>info</code> 行就说明
+  PATH、<code>undist_api.dll</code>、驱动都对了。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="s5">5. 使用说明</h2>
+
+<h3>5.1 上位机接入（三步 + 最小代码）</h3>
+
+<pre><span class="c">// ① 引用：ProjectReference 或直接引用 Undistortion.Inference.dll</span>
+<span class="k">using</span> OpenCvSharp;
+<span class="k">using</span> Undistortion.Inference;
+
+<span class="c">// ② 初始化参数 = 一个结构体（没有配置文件）</span>
+<span class="k">var</span> config = <span class="k">new</span> UndistortionConfig
+{
+    MatrixDir = <span class="s">@"D:\opt\undistortion\botong25"</span>,   <span class="c">// 12 个 .bin 目录，绝对路径</span>
+    Width     = 5120,
+    Height    = 4096,
+    DeviceId  = 0,
+};
+
+<span class="c">// ③ 初始化一次，长期复用</span>
+<span class="k">using var</span> undistorter = <span class="k">new</span> Undistorter(config);
+
+<span class="c">// 每帧：Mat 进 → Mat 出</span>
+<span class="k">using var</span> dst = undistorter.Process(srcMat);          <span class="c">// 或写入复用缓冲（推荐高频）</span>
+undistorter.Process(srcMat, dstMat);
+Console.WriteLine(undistorter.LastTiming);            <span class="c">// h2d / infer / d2h / total</span></pre>
+
+<div class="note">
+  <b>配置字段的「必填 / GUI / 校验」写在结构体的 XML 注释里</b>（<code>UndistortionConfig.cs</code>，
+  Visual Studio IntelliSense 直接可见）：<code>MatrixDir</code> 必填 + GUI 必须开放（目录选择）；
+  <code>Width</code>/<code>Height</code> 必填 + GUI 只读展示（随相机/图像带出）；
+  <code>DeviceId</code> 可选（默认 0）+ GUI 必须开放（多卡选卡）。
+  上位机做配置界面时照这三条生成即可；逐字段细节见
+  <a href="UNDIST-107-去畸变Undistortion_最小开始_Test调用说明_20261104.html">UNDIST-107 §4.2</a>。
+</div>
+
+<table>
+  <thead><tr><th>成员</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Undistorter(UndistortionConfig)</code></td><td>初始化：表 240 MB + 显存 280 MB，约 8.5 s</td></tr>
+    <tr><td><code>Mat Process(Mat src)</code></td><td>新建输出 Mat（调用方 Dispose）</td></tr>
+    <tr><td><code>void Process(Mat src, Mat dst)</code></td><td>写入复用缓冲，避免每帧 20 MB 分配</td></tr>
+    <tr><td><code>UndistortionInfo Info</code></td><td>尺寸 / 表与显存 / GPU / TRT 版本 / 初始化耗时 / 是否回退 pageable</td></tr>
+    <tr><td><code>UndistortionTiming LastTiming</code></td><td>最近一次分段耗时</td></tr>
+    <tr><td><code>Dispose()</code></td><td>幂等；终结器兜底</td></tr>
+  </tbody>
+</table>
+
+<div class="warnbox">
+  <b>三条硬约束：</b>
+  ① 只支持单通道 <code>CV_8UC1</code>，尺寸必须等于 <code>Width × Height</code>；
+  ② <b>单实例单线程</b>（原生一条 stream + 互斥锁），并行请每线程一实例（显存 280 MB/实例）；
+  ③ 初始化只做一次，不要每帧 new。忘记 Dispose 有终结器兜底，但仍建议 <code>using</code>。
+</div>
+
+<h3>5.2 离线工具</h3>
+
+<table>
+  <thead><tr><th>命令</th><th>作用</th><th>输出</th></tr></thead>
+  <tbody>
+    <tr><td><code>scripts\build_native.ps1</code></td><td>CMake 构建 + 同步 DLL 到 thirdpart</td>
+        <td><code>trt/build/undist_api.dll</code>、<code>csharp/thirdpart/undist_api.dll</code></td></tr>
+    <tr><td><code>scripts\run_test.ps1</code><br><span class="small">[-Image …] [-Matrix …]</span></td>
+        <td>构建 C# + 最小调用</td><td><code>csharp/Undistortion.Test/output/*.bmp</code></td></tr>
+    <tr><td><code>scripts\run_verify.ps1</code><br><span class="small">[-Limit N] [-Raw/-Ref/-Matrix/-Json …]</span></td>
+        <td>40 图逐像素验收</td><td><code>document/data/csharp_verify.json</code></td></tr>
+    <tr><td><code>scripts\run_acceptance.ps1</code></td><td>原生四口径（pinned / pageable / 零拷贝 / kernel）</td>
+        <td><code>document/data/acceptance_report.json</code> + CSV</td></tr>
+    <tr><td><code>python scripts\undist_batch.py --raw … --out …</code></td>
+        <td>数据集按子目录批处理，保持同名同结构</td><td>输出目录 + <code>undist_report.json</code></td></tr>
+  </tbody>
+</table>
+
+<p class="small">
+  离线参数<b>只在命令行/脚本里</b>：脚本默认矩阵目录是
+  <code>…/undistortion_standaloneV0/botong25</code>，尺寸由首图决定。代码里没有配置文件；<br>若矩阵放在 exe 同级 <code>botong25</code>，命令行连 <code>--matrix</code> 都不用给（详见 UNDIST-107）。
+</p>
+
+<h3>5.3 部署形态三选一（实测）</h3>
+
+<table>
+  <thead><tr><th>形态</th><th class="num">体积</th><th>做法</th><th>实测结果</th></tr></thead>
+  <tbody>
+    <tr><td><b>A. 环境提供</b>（推荐产线）</td><td class="num">93.9 MB</td>
+        <td>拷 <code>dist</code> 目录 + 机器上已装 TRT/CUDA 且 PATH 已配</td>
+        <td><span class="badge b-ok">可用</span> init 8.5 s / 4.94 ms 每帧</td></tr>
+    <tr><td><b>B. 绿色目录</b></td><td class="num">866 MB</td>
+        <td>把 <code>nvinfer_10</code> / builder_sm120 / <code>cudart</code>
+            也拷到 exe 同目录，PATH 可有可无；<b>不要</b>带 cuDNN / cuBLAS</td>
+        <td><span class="badge b-ok">实测可用</span>（干净 PATH 下 10.3 ms 首帧）</td></tr>
+    <tr><td><b>C. 最小运行</b></td><td class="num">≈ 507 MB</td>
+        <td>预置 <code>.engine</code> 后只带推理运行时（需把缓存能力加回 C# 层）</td>
+        <td><span class="badge b-warn">需要改造</span> 省 360 MB + 启动 1.6 s</td></tr>
+  </tbody>
+</table>
+
+<div class="badbox">
+  <b>两个实测失败案例（部署时最常见）：</b><br>
+  ① 只拷 <code>dist</code> 但 PATH 没配 → <code>DllNotFoundException: Unable to load DLL 'undist_api'
+  or one of its dependencies (0x8007007E)</code>；<br>
+  ② PATH 配了，但缺 <code>nvinfer_builder_resource_sm120_10.dll</code> →
+  <code>[undist][trt][E] Unable to load library: nvinfer_builder_resource_sm120_10.dll: 126</code>
+  → C# 侧 <code>UndistortionException: [EngineBuild(-9)]</code>。
+</div>
+
+<h3>5.4 为什么“不缓存引擎”会牵扯到部署</h3>
+
+<p>
+  交付层固定不缓存（上位机启动一次、长期运行，6.7 s 一次性成本可接受）。代价是：
+  <b>客户端必须有“构建引擎”的能力</b> —— 即 GPU 架构对应的 builder resource（本机 sm_120 = 360 MB）。
+  如果客户端只想带推理运行时，就必须改成“随包预置 <code>.engine</code>”（形态 C，需要把缓存开关加回结构体，约 1 个字段 + 3 行）。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="s6">6. 常见问题速查</h2>
+
+<table>
+  <thead><tr><th>现象</th><th>原因</th><th>处理</th></tr></thead>
+  <tbody>
+    <tr><td><code>DllNotFoundException … 'undist_api' … 0x8007007E</code></td>
+        <td><code>undist_api.dll</code> 不在 exe 目录，或它的依赖（<code>nvinfer_10</code>/<code>cudart64_12</code>）找不到</td>
+        <td>把 <code>thirdpart/undist_api.dll</code> 放到宿主 exe 同目录；把 TRT/CUDA 的 <code>bin</code> 加进 PATH（或走形态 B）</td></tr>
+    <tr><td><code>[EngineBuild(-9)] buildSerializedNetwork 返回空</code></td>
+        <td>缺 <code>nvinfer_builder_resource_sm120_10.dll</code>（或架构不匹配），或 TRT 版本不对</td>
+        <td>安装完整 TensorRT（含 builder resource）；换卡型后确认对应 <code>sm_XX</code> 文件存在</td></tr>
+    <tr><td>“矩阵 <code>botong25</code> 放哪？能用相对路径吗？”</td>
+        <td>960 MB 数据，建议放 <b>exe 同级</b>；Test/Tools 默认就找 <code>&lt;exe&gt;\botong25</code></td>
+        <td>相对名按 exe 目录解析（不看 CWD）；不要塞进 <code>bin\</code> 当唯一副本，见 UNDIST-107 §2.1</td></tr>
+    <tr><td>“要不要一起装/拷 cuDNN？”</td>
+        <td>不需要。本网络没有 Conv/RNN，cuDNN 一次都不会被加载</td>
+        <td>见 <a href="#s3">3.2.1</a>（含隔离实测）；多拷 ≈1 GB 纯浪费</td></tr>
+    <tr><td><code>[MatrixMissing(-6)]</code></td>
+        <td><code>MatrixDir</code> 不存在或缺 12 个 <code>.bin</code></td>
+        <td>检查目录与文件名：<code>U_1..4 / V_1..4 / A1..4</code></td></tr>
+    <tr><td><code>[MatrixSize(-7)]</code></td>
+        <td><code>Width/Height</code> 与矩阵实际尺寸不符</td>
+        <td>让 <code>Width/Height</code> 取待处理图的 <code>Mat.Width/Height</code>（离线工具就是这么做的）</td></tr>
+    <tr><td><code>[InvalidImage(-3)]</code> 或 <code>ArgumentException</code></td>
+        <td>图非 <code>CV_8UC1</code>、尺寸不符、<code>Mat</code> 非连续、空指针</td>
+        <td>灰度化 + 尺寸对齐；ROI 先 <code>Clone()</code></td></tr>
+    <tr><td><code>[OutOfMemory(-8)]</code></td>
+        <td>显存不足（280 MB/实例）或主机页锁内存不足</td>
+        <td>减少并发实例；页锁不足会自动回退 pageable（看 <code>Info.PinnedStaging</code>）</td></tr>
+    <tr><td>启动比预期慢（8~9 s）</td>
+        <td>现场构建引擎（不缓存）</td>
+        <td>属正常；要更快就改形态 C（预置 <code>.engine</code>）</td></tr>
+    <tr><td>多线程调用偶发串行/慢</td>
+        <td>单实例有原生互斥锁</td>
+        <td>每线程一个 <code>Undistorter</code></td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s7">7. 文档索引与阅读顺序</h2>
+
+<table>
+  <thead><tr><th>编号</th><th>文档</th><th>位置</th><th>什么时候读</th></tr></thead>
+  <tbody>
+    <tr><td><b>本文</b></td><td>项目使用说明（目录 / 依赖三分类 / 环境 / 集成 / FAQ / 索引）</td>
+        <td><code>csharp/document/</code></td><td><b>第一次接触这个项目</b></td></tr>
+    <tr><td>UNDIST-101</td><td>TRT 推理与 C# 封装 设计与实现</td><td><code>document/</code></td>
+        <td>想搞懂“12 个矩阵 → 12 B/px 表 → 20 层网络”怎么来的</td></tr>
+    <tr><td>UNDIST-102</td><td>TRT 推理 测试与验收报告（40 图）</td><td><code>document/</code></td>
+        <td>要验收数据、四口径耗时、逐图 CSV</td></tr>
+    <tr><td>UNDIST-103</td><td>内存搬运口径与批量耗时</td><td><code>document/</code></td>
+        <td>要解释 pageable / pinned / 零拷贝差在哪、批量要多久</td></tr>
+    <tr><td>UNDIST-104</td><td>C# 接口文档（<b>完整能力面</b>，含已收敛的入口）</td><td><code>document/</code></td>
+        <td>需要查已移除入口（byte[] / PinnedBuffer / 裸指针 / 基准）的原始说明</td></tr>
+    <tr><td>UNDIST-105</td><td>项目梳理与精简重构（结构 / 保留去除 / 配置 / 日志 / 缓存 / 命名）</td>
+        <td><code>document/</code></td>
+        <td>想知道“为什么只留 Mat”“为什么没有配置文件和日志开关”</td></tr>
+    <tr><td>UNDIST-106</td><td><b>本文</b>：项目使用说明</td><td><code>csharp/document/</code></td>
+        <td>接入 / 部署 / 排障</td></tr>
+    <tr><td><a href="UNDIST-107-去畸变Undistortion_最小开始_Test调用说明_20261104.html">UNDIST-107</a></td>
+        <td><b>最小开始</b>：只讲 <code>Undistortion.Test</code> 的配置参数 / 初始化 / 调用 / 释放（85 行）</td>
+        <td><code>csharp/document/</code></td>
+        <td>想 5 分钟把一张图跑出去</td></tr>
+    <tr><td><a href="UNDIST-108-去畸变Undistortion_第三方库安装指南_显卡驱动_CUDA_TensorRT_cuDNN_20261104.html">UNDIST-108</a></td>
+        <td><b>第三方库安装指南</b>：显卡驱动 / CUDA / TensorRT / cuDNN 的安装、环境变量与验证</td>
+        <td><code>csharp/document/</code></td>
+        <td>新机器从零装环境 / 排查 <code>DllNotFound</code></td></tr>
+  </tbody>
+</table>
+
+<div class="bluebox">
+  <b>推荐阅读顺序：</b>本文（先能跑）→ UNDIST-105（搞清边界与为什么）→ UNDIST-101（原理）
+  → UNDIST-102/103（数据口径）。<br>
+  <b>只接上位机、不关心原理</b>：本文 §3 + §5.1 + §6 就够。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s8">8. 验收记录</h2>
+
+<table>
+  <thead><tr><th>项</th><th class="num">结果</th><th class="num">阈值</th><th>判定</th></tr></thead>
+  <tbody>
+    <tr><td>差异像素 / 总像素（40 图）</td><td class="num">4,914 / 838,860,800</td><td class="num">—</td><td>—</td></tr>
+    <tr><td>差异比例</td><td class="num">5.858×10⁻⁶</td><td class="num">≤ 1×10⁻⁵</td>
+        <td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>最大绝对差</td><td class="num">1 LSB</td><td class="num">≤ 1</td>
+        <td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>差异 ≥ 2 的像素</td><td class="num">0</td><td class="num">== 0</td>
+        <td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>PSNR 最小值</td><td class="num">99.47 dB</td><td class="num">≥ 60</td>
+        <td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>C# 构建</td><td class="num">0 警告 / 0 错误</td><td class="num">—</td>
+        <td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>单帧耗时（库内口径）</td><td class="num">4.94 ms（202 张/s）</td><td class="num">—</td><td>12.9× vs CPU</td></tr>
+  </tbody>
+</table>
+
+<p class="small">
+  数据文件：<code>document/data/csharp_verify.json</code>（本次 40 图）、
+  <code>acceptance_report.json</code>（原生四口径）、<code>acceptance_per_image.csv</code>（逐图）。
+  环境：RTX 5060 Laptop（8 GiB / 26 SM）· TensorRT 10.14.1 · CUDA 12.8 · Win11 · 5120×4096 灰度。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="s9">9. 约定与边界</h2>
+
+<ul>
+  <li><b>一个配置概念</b>：<code>UndistortionConfig</code> 结构体（矩阵目录 / 宽 / 高 / 设备号）。
+      没有 JSON、没有加载器；离线参数走命令行。</li>
+  <li><b>日志固定关闭</b>：交付层写死 <code>log_level = 0</code>；需要诊断用 <code>Info</code> /
+      <code>LastTiming</code> / <code>UndistortionException.Code</code>。离线 C++/Python 可自行开日志。</li>
+  <li><b>引擎缓存固定关闭</b>：每次现场构建。要改成预置 <code>.engine</code>（形态 C）需加回
+      1 个字段 + 3 行，见 UNDIST-105 §6.7。</li>
+  <li><b>命名约定</b>：命名空间 = 项目名（<code>Undistortion.Inference</code> / <code>Undistortion.Tools</code>），
+      一个公开类型一个文件，工具类用 <code>-er</code>。</li>
+  <li><b>上传边界</b>：<code>thirdpart/undist_api.dll</code> 入库（交付快照）；
+      TensorRT/CUDA/OpenCvSharp 一律不入库（体积 + 许可）。详见项目根 <code>.gitignore</code>。</li>
+</ul>
+
+<hr>
+<p class="small">
+  UNDIST-106 · 2026-11-04 · 位置：<code>Algorithms/undistortion/csharp/document/</code> ·
+  适用：.NET 8 / Windows x64 · 依赖版本见 §3 ·
+  相关：<code>csharp/thirdpart/README.md</code>、项目根 <code>README.md</code>、<code>document/UNDIST-101~105</code>。
+</p>
+
+</div>
+</body>
+</html>

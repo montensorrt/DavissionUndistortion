@@ -1,0 +1,35 @@
+<Project>
+
+  <!-- ===================================================================
+       csharp 三个项目（Inference / Test / Tools）的公共属性。
+       只在这里声明一次，避免每个 csproj 重复。
+       =================================================================== -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!-- ===================================================================
+       原生库 undist_api.dll 的定位顺序：
+         1) trt\build            —— 开发期刚构建出来的（最新）
+         2) trt\build\Release    —— VS 生成器产物
+         3) csharp\thirdpart     —— 交付快照（客户端没有 CMake 时用这个）
+       选中后统一拷到各项目输出目录，免去手工复制。
+       =================================================================== -->
+  <PropertyGroup>
+    <UndistNativeDir Condition="Exists('$(MSBuildThisFileDirectory)..\trt\build\undist_api.dll')">$(MSBuildThisFileDirectory)..\trt\build</UndistNativeDir>
+    <UndistNativeDir Condition="'$(UndistNativeDir)' == '' And Exists('$(MSBuildThisFileDirectory)..\trt\build\Release\undist_api.dll')">$(MSBuildThisFileDirectory)..\trt\build\Release</UndistNativeDir>
+    <UndistNativeDir Condition="'$(UndistNativeDir)' == '' And Exists('$(MSBuildThisFileDirectory)thirdpart\undist_api.dll')">$(MSBuildThisFileDirectory)thirdpart</UndistNativeDir>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(UndistNativeDir)' != ''">
+    <Content Include="$(UndistNativeDir)\undist_api.dll"
+             CopyToOutputDirectory="PreserveNewest"
+             Link="undist_api.dll" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,13 @@
+# 行尾策略：显式关闭 Git 的行尾自动转换。
+#
+# 本仓库是 `Algorithms\undistortion` 的**逐字节快照**：仓库里的文件必须与工程目录
+# 完全一致，才能用 MD5/SHA256 对拍（尤其是 csharp/thirdpart/undist_api.dll 这类二进制，
+# 以及混用 CRLF/LF 的 .sln / .csproj）。
+#
+# 若沿用 core.autocrlf=true，git add 会把 CRLF 规范化为 LF：每个文件产生全文件 diff，
+# 原始字节永久丢失，且 Download ZIP / Raw 不做反向还原。
+#
+# 因此声明 `* -text`：Git 不做任何转换，仓库字节与工程目录逐字节一致。
+# 副作用：GitHub 网页 diff 会显示 CRLF；Windows 工程可接受。
+
+* -text

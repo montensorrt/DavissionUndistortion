@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>去畸变 Undistortion —— 项目梳理、精简重构与接口收敛</title>
+<style>
+  :root{
+    --ink:#16202b; --ink2:#43535f; --line:#dde4ec; --bg:#f5f8fb; --card:#fff;
+    --accent:#0f7b6c; --accent2:#0a5c50; --blue:#1f6feb; --blue2:#0b4ea2;
+    --ok:#177f4b; --warn:#b45309; --bad:#b91c1c;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+       line-height:1.72;font-size:15px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px 96px}
+  header.hero{background:linear-gradient(135deg,#062f28 0%,#0d5145 52%,#0f7b6c 100%);
+       color:#fff;padding:52px 28px 44px;margin-bottom:34px}
+  header.hero .inner{max-width:1180px;margin:0 auto}
+  header.hero h1{margin:0 0 10px;font-size:31px;letter-spacing:.4px;font-weight:700}
+  header.hero .sub{opacity:.93;font-size:15.5px;max-width:960px}
+  header.hero .tags{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+  header.hero .tag{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+       padding:4px 11px;border-radius:999px;font-size:12.5px}
+  h2{margin:52px 0 14px;font-size:23px;padding-bottom:9px;border-bottom:2px solid var(--accent);
+     color:var(--accent2)}
+  h3{margin:32px 0 10px;font-size:17.5px}
+  h4{margin:22px 0 8px;font-size:15px;color:var(--ink2)}
+  code{font-family:var(--mono);background:#eaf1f6;padding:1.5px 5px;border-radius:4px;
+       font-size:13px;color:#0a5c50}
+  pre{background:#0d1a20;color:#d8e8e4;padding:16px 18px;border-radius:8px;overflow-x:auto;
+      font-family:var(--mono);font-size:12.7px;line-height:1.62;border:1px solid #1b3038}
+  pre .c{color:#78968f}
+  pre .k{color:#6fc9b8}
+  pre .s{color:#a5d6a7}
+  table{border-collapse:collapse;width:100%;margin:16px 0;background:var(--card);
+        border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:13.6px}
+  th,td{padding:8px 11px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#e9f2f0;font-weight:600;color:#123f39;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(even){background:#fbfdfc}
+  td.num,th.num{text-align:right;font-family:var(--mono);font-size:12.9px;white-space:nowrap}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+        padding:18px 22px;margin:18px 0;box-shadow:0 1px 2px rgba(16,32,56,.04)}
+  .kv{display:grid;grid-template-columns:210px 1fr;gap:6px 16px;font-size:14px}
+  .kv dt{color:var(--ink2);font-weight:600}
+  .kv dd{margin:0}
+  .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600}
+  .b-ok{background:#e0f4ee;color:var(--ok);border:1px solid #b4e0d4}
+  .b-warn{background:#fdf1e0;color:var(--warn);border:1px solid #f3d3a3}
+  .b-bad{background:#fdecec;color:var(--bad);border:1px solid #f5c1c1}
+  .b-info{background:#e8f0fd;color:var(--blue2);border:1px solid #c2d9fb}
+  .note{border-left:4px solid var(--accent);background:#eef8f5;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .warnbox{border-left:4px solid var(--warn);background:#fff8ee;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .badbox{border-left:4px solid var(--bad);background:#fff3f3;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .bluebox{border-left:4px solid var(--blue);background:#f0f6ff;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:10px;
+       padding:16px 26px;margin:26px 0}
+  .toc ol{margin:6px 0 0;padding-left:20px}
+  .toc a{color:var(--accent2);text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  .toc > ol > li{margin:4px 0;font-weight:600}
+  .small{font-size:12.8px;color:var(--ink2)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:880px){.two{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
+  hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
+  .tree{background:#0d1a20;color:#d8e8e4;border-radius:8px;padding:18px 20px;overflow-x:auto;
+        font-family:var(--mono);font-size:12.4px;line-height:1.66}
+  .tree .d{color:#6fc9b8}
+  .tree .f{color:#d8e8e4}
+  .tree .n{color:#f0b862}
+  .tree .x{color:#78968f}
+  .flow{background:#0d1a20;color:#d8e8e4;border-radius:8px;padding:18px 20px;overflow-x:auto;
+        font-family:var(--mono);font-size:12.3px;line-height:1.6}
+  .flow .b{color:#6fc9b8}
+  .flow .n{color:#f0b862}
+  .flow .g{color:#8fb8b0}
+  .flow .r{color:#f08a8a}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="inner">
+    <h1>去畸变 Undistortion —— 项目梳理、精简重构与接口收敛</h1>
+    <div class="sub">
+      把 <code style="background:rgba(255,255,255,.16);color:#fff">Algorithms/undistortion</code>
+      从「能力全集」收敛为「一条交付路径」：C# 三个项目（主项目 / 测试项目 / 工具项目）、
+      去畸变只保留 <b>Mat 一种入口</b>、初始化参数收进一枚 <b>C# 结构体</b>、对象命名统一；
+      日志按「只服务离线、上位机不启用」处理，引擎缓存按「部署期产物」处理。
+      被移除的 byte[] / 零拷贝 PinnedBuffer / 裸指针 / 纯 kernel 基准 / 内存模式切换
+      不丢信息 —— 实现要点与实测数据完整保留在本文第 5 节。
+    </div>
+    <div class="tags">
+      <span class="tag">40 图验收 PASS · 5.858×10⁻⁶ · ±1 LSB · 无 ≥2 差异</span>
+      <span class="tag">C# 公共 API 12 → 6 个成员</span>
+      <span class="tag">C# 源码 1222 → 948 行</span>
+      <span class="tag">P/Invoke 10 → 5 个导出</span>
+      <span class="tag">版本 1.0 / 2026-11-04</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="toc">
+  <b>目录</b>
+  <ol>
+    <li><a href="#s1">结论摘要</a></li>
+    <li><a href="#s2">项目全景：目录与模块职责</a></li>
+    <li><a href="#s3">运行链路与资源口径</a></li>
+    <li><a href="#s4">保留 / 去除 决策总表</a></li>
+    <li><a href="#s5">被移除能力的完整档案</a></li>
+    <li><a href="#s6">初始化参数：C# 结构体 + 日志 / 引擎缓存策略</a></li>
+    <li><a href="#s7">对象命名规范化</a></li>
+    <li><a href="#s8">三个 C# 项目的职责与用法</a></li>
+    <li><a href="#s9">构建与运行</a></li>
+    <li><a href="#s10">验收结果</a></li>
+    <li><a href="#s11">.gitignore 上传规则</a></li>
+    <li><a href="#s12">迁移对照与风险</a></li>
+    <li><a href="#s13">附录</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s1">1. 结论摘要</h2>
+
+<div class="card">
+  <div class="kv">
+    <dt>项目定位</dt>
+    <dd>把 CPU 去畸变算法（<code>undistortion_standaloneV0</code>）做成 <b>TensorRT 推理库</b>：
+        12 个去畸变矩阵 → 12 B/px 紧凑表 → 20 层原生算子网络，输入输出都是内存图像，不落盘。</dd>
+
+    <dt>交付物</dt>
+    <dd>一个原生 DLL（C ABI）+ 一个 .NET 8 类库 + 两个可执行程序（测试 / 工具）。
+        C++ 侧只是「能力实现层」，C# 侧才是「交付层」。</dd>
+
+    <dt>C# 三个项目</dt>
+    <dd><b>主项目</b> <code>Undistortion.Inference</code>（类库，Mat 进 Mat 出）、
+        <b>测试项目</b> <code>Undistortion.Test</code>（加载指定图像 → 初始化 → 执行 → 释放，85 行）、
+        <b>工具项目</b> <code>Undistortion.Tools</code>（批量验收 + 与 CPU 参考图逐像素比对）。</dd>
+
+    <dt>唯一入口</dt>
+    <dd>去畸变只保留 <b>Mat</b> 一种方式：<code>Process(Mat)</code> 与
+        <code>Process(Mat, Mat)</code>。其余入口（byte[] / PinnedBuffer / IntPtr / BenchKernel /
+        SetMemoryMode / QueryLastTiming）已从代码删除，档案见第 5 节。</dd>
+
+    <dt>初始化参数</dt>
+    <dd>是一枚 <b>只读结构体</b> <code>UndistortionConfig</code>（定义在
+        <code>UndistortionConfig.cs</code>）：矩阵目录、宽、高、设备号、引擎缓存路径。
+        <b>没有配置文件</b>：没有 JSON、没有加载器、没有路径查找规则；库内零文件 I/O。
+        离线程序的参数走命令行（矩阵目录显式给，尺寸取首图 <code>Mat.Width/Height</code>）。</dd>
+
+    <dt>日志 / 缓存</dt>
+    <dd>日志<b>只服务离线调用</b>：结构体没有日志字段，交付层固定 <code>log_level = 0</code>，
+        C# 上位机不使用也开不了；离线走 C ABI 自己开（见 6.6）。
+        引擎缓存是<b>可选加速</b>：37 KB，命中 0.15 s、不缓存每次构建 ≈6.7 s（进程 8.51 s vs 1.79 s）。
+        <b>默认不缓存</b>；参数已从「文件路径」收敛成「目录」，见 6.7。</dd>
+
+    <dt>验收</dt>
+    <dd>重构后重新跑了 40 图全量验收：<b>PASS</b>，差异像素
+        <b>4914 / 838,860,800 = 5.858×10⁻⁶</b>、最大差 <b>1 LSB</b>、差异 ≥2 的像素 <b>0</b>、
+        PSNR 最小 <b>99.47 dB</b> —— 与重构前 C++ 验收、C# 自测的数值<b>完全一致</b>。</dd>
+
+    <dt>代码量</dt>
+    <dd>C# 源码 1222 → 948 行（含注释；纯代码行 566）；类库 701 → 567 行；
+        公共 API 成员 12 → 6；P/Invoke 声明 10 → 5；三个 csproj 的重复配置收敛到
+        <code>Directory.Build.props</code>。换掉的是原先混在一起的选项类、配置文件与加载器、
+        页锁缓冲、比对工具与三种入口；留下的是一个结构体 + 一条 Mat 路径。</dd>
+  </div>
+</div>
+
+<div class="note">
+  <b>一句话：</b>能力层（C++）保持不变，交付层（C#）砍到「config → Mat → Mat」一条线；
+  被砍掉的四种搬运口径不是丢弃，而是从「可执行代码」变成「可复现文档 + 可观测字段」
+  （<code>Info.PinnedStaging</code>、<code>LastTiming</code>）。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s2">2. 项目全景：目录与模块职责</h2>
+
+<h3>2.1 目录结构（重构后）</h3>
+
+<div class="tree">
+<span class="d">Algorithms/undistortion/</span>
+├── <span class="f">.gitignore</span>                      <span class="x"># 上传规则（源码/文档/脚本入库，产物/缓存不入库）</span>
+├── <span class="f">README.md</span>                       <span class="x"># 一页纸：定位、目录、构建、C# 速览、结论</span>
+├── <span class="d">csharp/</span>                         <span class="x"># .NET 8（一个解决方案，三个项目）</span>
+│   ├── <span class="f">Undistortion.sln</span>
+│   ├── <span class="f">Directory.Build.props</span>        <span class="x"># 公共属性 + 原生 DLL 自动拷贝</span>
+│   ├── <span class="d">Undistortion.Inference/</span>      <span class="x"># 主项目（类库）</span>
+│   │   ├── <span class="f">Undistorter.cs</span>             <span class="x"># 句柄生命周期 + Mat 推理（日志/缓存固定关）</span>
+│   │   ├── <span class="f">UndistortionConfig.cs</span>       <span class="x"># ★ 初始化参数结构体（唯一配置）</span>
+│   │   ├── <span class="f">UndistortionInfo.cs</span>         <span class="x"># Info + Timing 结果对象</span>
+│   │   ├── <span class="f">UndistortionException.cs</span>    <span class="x"># 原生错误码异常</span>
+│   │   └── <span class="f">NativeMethods.cs</span>           <span class="x"># 5 个 P/Invoke + 结构体 + 错误码</span>
+│   ├── <span class="d">Undistortion.Test/</span>           <span class="x"># 测试项目（最小调用链，85 行）</span>
+│   │   └── <span class="f">Program.cs</span>
+│   ├── <span class="d">Undistortion.Tools/</span>          <span class="x"># 工具项目（验收比对，296 行）</span>
+│   │   ├── <span class="f">Program.cs</span>                 <span class="x"># verify 子命令 + JSON 报告</span>
+│   │   └── <span class="f">ImageComparer.cs</span>            <span class="x"># 逐像素比对（Diff/Max/Ge2/MAE/PSNR）</span>
+│   ├── <span class="d">thirdpart/</span>                <span class="x"># ★ 第三类依赖：我们自己生成的原生库</span>
+│   │   ├── <span class="f">undist_api.dll</span>       <span class="x"># 88 KB，CMake 产物，拷走即用（入库）</span>
+│   │   └── <span class="f">README.md</span>              <span class="x"># 依赖清单 / SHA256 / 同步方式 / 禁放清单</span>
+│   └── <span class="d">document/</span>                <span class="x"># ★ C# 侧文档（UNDIST-106 使用说明）</span>
+├── <span class="d">trt/</span>                            <span class="x"># 原生库（CMake + Ninja），交付 DLL 的唯一实现</span>
+│   ├── <span class="f">CMakeLists.txt</span>
+│   ├── <span class="d">include/</span>
+│   │   ├── <span class="f">undist_api.h</span>                <span class="x"># C ABI（10 导出）</span>
+│   │   ├── <span class="f">undist_tables.h</span>             <span class="x"># 紧凑表结构与构建接口</span>
+│   │   └── <span class="f">undist_engine.h</span>             <span class="x"># TRT 引擎层（Pimpl，隐藏 TRT/CUDA）</span>
+│   ├── <span class="d">src/</span>
+│   │   ├── <span class="f">undist_tables.cpp</span>           <span class="x"># 12 个 .bin → idx0/fu/fv（12 B/px）</span>
+│   │   ├── <span class="f">undist_engine.cpp</span>           <span class="x"># 引擎构建/缓存 + CUDA 内存 + 搬运路径</span>
+│   │   └── <span class="f">undist_api.cpp</span>              <span class="x"># 句柄/锁/参数校验/错误串</span>
+│   └── <span class="d">tests/</span>
+│       └── <span class="f">test_undist_api.cpp</span>         <span class="x"># 原生层全量验收（四口径，非交付）</span>
+├── <span class="d">scripts/</span>                        <span class="x"># 构建 / 最小测试 / 验收 / 批处理</span>
+│   ├── <span class="f">build_native.ps1</span>  <span class="f">_env.ps1</span>
+│   ├── <span class="f">run_test.ps1</span>      <span class="f">run_verify.ps1</span>  <span class="f">run_acceptance.ps1</span>
+│   └── <span class="f">undist_batch.py</span>                <span class="x"># 数据集按子目录批处理（Python）</span>
+├── <span class="d">document/</span>                      <span class="x"># 设计/测试/接口文档 + 数据（101~105）</span>
+└── <span class="d">prompt/</span>                        <span class="x"># 需求归档（方案分析、部署 API、批量耗时）</span>
+</div>
+
+<h3>2.2 模块职责</h3>
+
+<table>
+  <thead><tr><th>模块</th><th>职责</th><th>对外契约</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>trt/src/undist_tables.cpp</code></td>
+      <td>读矩阵目录下 12 个列主序 float32 <code>.bin</code>，分块转置为行主序；按「四抽头全在界内」
+          生成有效位掩码；算出 <code>idx0</code>（int32，越界指向哑元）、<code>fu = A2+A4</code>、
+          <code>fv = A3+A4</code>。峰值内存只留 2 张矩阵。</td>
+      <td><code>undist::build_tables()</code></td>
+    </tr>
+    <tr>
+      <td><code>trt/src/undist_engine.cpp</code></td>
+      <td>CUDA 上下文、TRT 引擎构建/缓存（37 KB 序列化 blob，带 32 B 头校验尺寸/版本/表结构）、
+          表与 IO 缓冲上显存、三种主机搬运路径（调用方页锁零拷贝 / 库内页锁暂存 / pageable 直传）、
+          纯 kernel 基准。</td>
+      <td><code>undist::Engine</code>（Pimpl）</td>
+    </tr>
+    <tr>
+      <td><code>trt/src/undist_api.cpp</code></td>
+      <td>C ABI 门面：句柄聚合（表 + 引擎 + 错误串 + 上次耗时）、互斥锁串行化、参数校验、
+          <code>undist_host_register</code> 页锁注册。</td>
+      <td><code>undist_create / undist_process / …</code></td>
+    </tr>
+    <tr>
+      <td><code>trt/tests/test_undist_api.cpp</code></td>
+      <td>原生层全量验收：40 图逐像素比对 CPU 产物、四口径计时、9 项 C ABI 契约用例、
+          JSON/CSV 报告。<b>不属于交付层</b>，是 UNDIST-102/103 数据的生成器。</td>
+      <td><code>test_undist_api.exe</code></td>
+    </tr>
+    <tr>
+      <td><code>csharp/Undistortion.Inference</code></td>
+      <td><b>交付层</b>。结构体参数 → 句柄生命周期 → Mat 互转 → 异常映射。主动砍掉所有旁路入口与
+          配置文件，只留一条业务路径。</td>
+      <td><code>Undistorter</code> / <code>UndistortionConfig</code></td>
+    </tr>
+    <tr>
+      <td><code>csharp/Undistortion.Test</code></td>
+      <td>最小可运行调用链，用来验证「装了就能跑」：读图 → 构造结构体 → 初始化 → 执行 → 释放。
+          参数走命令行，尺寸取首图。</td>
+      <td>命令行 <code>--image --matrix</code></td>
+    </tr>
+    <tr>
+      <td><code>csharp/Undistortion.Tools</code></td>
+      <td>验收工具：批量去畸变 + 与 CPU 参考目录逐像素比对 + PASS/FAIL 判定 + JSON 报告。</td>
+      <td><code>verify</code> 子命令</td>
+    </tr>
+    <tr>
+      <td><code>scripts/</code></td>
+      <td>环境变量（TRT/CUDA 路径）、原生构建、最小测试、验收、数据集批处理。</td>
+      <td>PowerShell / Python</td>
+    </tr>
+    <tr>
+      <td><code>document/</code></td>
+      <td>设计与实现（101）、测试与验收（102）、内存搬运与批量（103）、C# 接口全量参考（104）、
+          本文（105），以及 JSON/CSV 实测数据。</td>
+      <td>HTML + data/</td>
+    </tr>
+    <tr>
+      <td><code>prompt/</code></td>
+      <td>需求原文归档，用于追溯「为什么长成这样」。</td>
+      <td>Markdown</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s3">3. 运行链路与资源口径</h2>
+
+<h3>3.1 一次调用的完整链路</h3>
+
+<div class="flow">
+<span class="b">C# 侧</span>                                    <span class="g">原生侧（undist_api.dll）</span>
+
+UndistortionConfig（结构体）                      <span class="g">上位机：代码里直接构造；离线：命令行 --matrix + 首图尺寸</span>
+   │
+   ▼
+new Undistorter(config)  ──────────────►  <span class="n">undist_create</span>(matrixDir, W, H, opt, nullptr)
+                                              │                   <span class="g">opt.log_level 固定 0；缓存路径固定 null</span>
+                                              │
+                                              ├─ <span class="n">build_tables</span>  12 × .bin → idx0(int32) + fu/fv(fp32)
+                                              │                 <span class="g">12 B/px → 5120×4096 = 240 MiB（一次，常驻主机）</span>
+                                              ├─ <span class="n">Engine::initialize</span>  CUDA ctx → 引擎（缓存 37 KB / 首次构建）
+                                              │                 → 表上显存 → 2×20 MiB 页锁暂存
+                                              └─ 回填 undist_info（尺寸/表/显存/GPU/TRT 版本/耗时）
+   │
+   ▼
+Process(srcMat)  ──────────────────────►  <span class="n">undist_process</span>(handle, src, stride, dst, stride, 0, &amp;t)
+                                              ├─ H2D：src → 页锁暂存 → 显存
+                                              ├─ enqueueV3：20 层原生算子（Gather×4 + 权重重建 + 累加 + CLIP/FLOOR）
+                                              └─ D2H：显存 → 页锁暂存 → dst Mat
+   │                                          <span class="g">全程不落盘；表只在初始化时搬一次</span>
+   ▼
+Dispose()  ────────────────────────────►  <span class="n">undist_release</span>（幂等；失败路径也可安全调用）
+</div>
+
+<h3>3.2 资源口径（5120×4096 单通道）</h3>
+
+<table>
+  <thead><tr><th>资源</th><th class="num">大小</th><th>生命周期</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>主机紧凑表</td><td class="num">240 MiB</td><td>初始化期间临时 → 上显存后释放</td>
+        <td>12 B/px：idx0 4 + fu 4 + fv 4</td></tr>
+    <tr><td>显存表</td><td class="num">240 MiB</td><td>句柄存续期</td><td>常驻，单实例</td></tr>
+    <tr><td>显存输入/输出</td><td class="num">40 MiB</td><td>句柄存续期</td><td>2 × 20 MiB</td></tr>
+    <tr><td>显存合计</td><td class="num">280 MiB</td><td>句柄存续期</td>
+        <td><code>Info.DeviceBytes</code>，与并行实例数线性相关</td></tr>
+    <tr><td>主机页锁暂存</td><td class="num">40 MiB</td><td>句柄存续期</td>
+        <td>页锁内存不足时自动回退 pageable，见 <code>Info.PinnedStaging</code></td></tr>
+    <tr><td>引擎缓存文件</td><td class="num">37 KB</td><td>可随时删除</td>
+        <td>绑定 GPU 架构 + TRT 版本，头不匹配即重建</td></tr>
+    <tr><td>初始化耗时</td><td class="num">≈ 8.5 s</td><td>每进程一次</td>
+        <td>交付层不缓存：表 1.3~2.1 s + 引擎构建 ≈6.7 s（离线命中缓存时 ≈1.6 s）</td></tr>
+    <tr><td>单图耗时（Mat 路径）</td><td class="num">≈ 4.94 ms</td><td>每帧</td>
+        <td>h2d 0.78 + infer 1.17 + d2h 0.78 + 主机行拷贝 2.05</td></tr>
+  </tbody>
+</table>
+
+<div class="warnbox">
+  <b>页锁内存不是「Pinned 托管句柄」。</b><code>GCHandle(Pinned)</code> / POH 只保证地址不被 GC 移动，
+  CUDA 仍按 pageable 处理。真正的零拷贝必须 <code>cudaHostRegister</code> 或 <code>cudaHostAlloc</code>；
+  实测未注册时 5.93 ms，注册后 2.76 ms。交付层把这件事收进原生库内部（<code>cudaHostAlloc</code>），
+  调用方无需关心。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s4">4. 保留 / 去除 决策总表</h2>
+
+<p class="small">位置列中「交付层」= <code>csharp/Undistortion.Inference</code>，「能力层」= <code>trt/</code>。</p>
+
+<table>
+  <thead><tr><th>项</th><th>位置</th><th>决策</th><th>理由 / 去向</th></tr></thead>
+  <tbody>
+    <tr><td>矩阵→紧凑表 + TRT 引擎（3 个 .cpp）</td><td>能力层</td>
+        <td><span class="badge b-ok">保留</span></td>
+        <td>唯一计算实现，数值已与 CPU 逐像素对齐，不动。</td></tr>
+    <tr><td>C ABI <code>create / process / get_info / get_error / release</code></td><td>能力层</td>
+        <td><span class="badge b-ok">保留</span></td>
+        <td>C# 交付层实际用到的 5 个导出。</td></tr>
+    <tr><td><code>undist_bench_kernel / set_memory_mode / get_last_timing / host_register / host_unregister</code></td>
+        <td>能力层</td><td><span class="badge b-info">保留（不暴露）</span></td>
+        <td>仍是能力层的一部分：Python 批处理工具与历史报告口径依赖。
+            C# 侧不再声明、不再调用，见 5.3 / 5.4。</td></tr>
+    <tr><td><code>test_undist_api.cpp</code>（原生验收程序）</td><td>能力层</td>
+        <td><span class="badge b-info">保留（非交付）</span></td>
+        <td>四口径 + 9 项契约用例的唯一复现器，是 UNDIST-102/103 的数据来源；
+            不参与 C# 交付，不随 NuGet/客户端发布。</td></tr>
+    <tr><td><code>Undistorter</code> 类</td><td>交付层</td>
+        <td><span class="badge b-ok">保留（重写）</span></td>
+        <td>重写为 Mat-only：只剩 6 个公开成员（ctor / Info / LastTiming / Process ×2 / Dispose）。</td></tr>
+    <tr><td><code>UndistortionOptions</code>（class）</td><td>交付层</td>
+        <td><span class="badge b-warn">改造</span></td>
+        <td>→ <code>UndistortionConfig</code> <b>结构体</b>（4 字段）：并入矩阵目录与尺寸，
+            只读 + <code>init</code>，成为「所有初始化参数」的唯一载体。</td></tr>
+    <tr><td>配置文件 <code>config/undistortion.json</code> + <code>UndistortionConfigLoader</code>（96 行）</td>
+        <td>交付层</td>
+        <td><span class="badge b-bad">去除</span></td>
+        <td>去掉日志/缓存键后只剩 4 个值，且只有离线工具用；离线参数改走命令行（与 C++/Python 一致），
+            尺寸取首图。理由与搬迁代价见 6.1 / 6.4。</td></tr>
+    <tr><td>C# 日志开关（<code>Options.LogLevel</code> / JSON <code>logLevel</code>）</td><td>交付层</td>
+        <td><span class="badge b-bad">去除</span></td>
+        <td>日志只服务离线调用方：结构体不设该字段，<code>log_level</code> 固定 0。
+            C++ 验收 / Python 批处理在 C ABI 侧自行开启。说明见 6.6。</td></tr>
+    <tr><td>C# 引擎缓存参数（曾为 <code>EngineCachePath</code> → <code>EngineCacheDir</code>）</td>
+        <td>交付层</td>
+        <td><span class="badge b-bad">去除</span></td>
+        <td>上位机一次启动、长期运行，6.7 s 构建是一次的成本；固定不缓存后，
+            路径/权限/并发/版本不匹配四类问题一起消失。缓存能力仍在 C ABI，见 6.7。</td></tr>
+    <tr><td><code>UndistortionInfo</code></td><td>交付层</td>
+        <td><span class="badge b-warn">裁剪</span></td>
+        <td>删 <code>TableVariant</code>（恒为 1）、<code>MemoryMode</code> 枚举 → <code>PinnedStaging</code> bool。</td></tr>
+    <tr><td><code>UndistortionTiming</code></td><td>交付层</td>
+        <td><span class="badge b-ok">保留</span></td>
+        <td>排障与性能观测需要；不额外消耗原生调用。</td></tr>
+    <tr><td><code>HostMemoryMode</code> 枚举 + <code>SetMemoryMode()</code></td><td>交付层</td>
+        <td><span class="badge b-bad">去除</span></td>
+        <td>业务上不存在「切到 pageable 跑生产」的场景；回退由能力层自动完成。档案 5.4。</td></tr>
+    <tr><td><code>PinnedBuffer</code>（页锁缓冲 + 零拷贝）</td><td>交付层</td>
+        <td><span class="badge b-bad">去除</span></td>
+        <td>与 Mat 接口语义冲突：要求调用方自己管 40 MiB 页锁内存的注册/注销。
+            档案 5.2（含 2.892 ms 实测与恢复代码骨架）。</td></tr>
+    <tr><td><code>Process(byte[])</code></td><td>交付层</td>
+        <td><span class="badge b-bad">去除</span></td>
+        <td>每次 Pin 数组 + 额外 20 MB 分配，收益为零（仍走库内暂存）。档案 5.1。</td></tr>
+    <tr><td><code>Process(IntPtr, stride, …)</code> 公开重载</td><td>交付层</td>
+        <td><span class="badge b-bad">去除</span></td>
+        <td>裸指针入口只服务零拷贝与外部缓冲；保留为 <code>internal</code> P/Invoke。档案 5.3。</td></tr>
+    <tr><td><code>BenchKernel()</code></td><td>交付层</td>
+        <td><span class="badge b-bad">去除</span></td>
+        <td>纯诊断能力（1.198 ms、210 GB/s 表带宽），数据已在 UNDIST-102/103。档案 5.3。</td></tr>
+    <tr><td><code>QueryLastTiming()</code></td><td>交付层</td>
+        <td><span class="badge b-bad">去除</span></td>
+        <td>与 <code>LastTiming</code> 属性重复，只是多一次原生调用。</td></tr>
+    <tr><td><code>ImageCompare.cs</code>（比对工具）</td><td>交付层</td>
+        <td><span class="badge b-warn">迁移</span></td>
+        <td>→ 工具项目 <code>ImageComparer</code>。类库不应携带验证工具。</td></tr>
+    <tr><td><code>Sample</code> 项目（三种内存模式示例）</td><td>交付层</td>
+        <td><span class="badge b-warn">重写</span></td>
+        <td>→ <code>Undistortion.Test</code>：只留一条最小调用链，85 行。</td></tr>
+    <tr><td><code>SelfTest</code> 项目（16 项封装自测）</td><td>交付层</td>
+        <td><span class="badge b-warn">重写</span></td>
+        <td>→ <code>Undistortion.Tools</code>：16 项契约用例的结论归入本文 5.5，
+            代码只保留「批量 + 比对 + 判定 + 报告」。</td></tr>
+    <tr><td>3 个 csproj 里重复的 DLL 拷贝 / CheckNative</td><td>交付层</td>
+        <td><span class="badge b-warn">收敛</span></td>
+        <td>→ <code>Directory.Build.props</code> 一处定义。</td></tr>
+    <tr><td>sln 的 x86/x64/AnyCPU 六套配置</td><td>交付层</td>
+        <td><span class="badge b-warn">收敛</span></td>
+        <td>三项目都是 AnyCPU，只留 <code>Debug|Any CPU</code> / <code>Release|Any CPU</code>，
+            62 行 → 34 行。</td></tr>
+    <tr><td><code>scripts/run_selftest.ps1</code></td><td>脚本</td>
+        <td><span class="badge b-bad">删除</span></td>
+        <td>由 <code>run_test.ps1</code>（最小测试）+ <code>run_verify.ps1</code>（40 图验收）替代。</td></tr>
+    <tr><td><code>scripts/undist_batch.py</code></td><td>脚本</td>
+        <td><span class="badge b-ok">保留</span></td>
+        <td>数据集批处理的唯一入口；同时修正了仍指向 <code>undistortionV1</code> 的旧路径。</td></tr>
+    <tr><td><code>csharp/document/UNDIST-104</code></td><td>文档</td>
+        <td><span class="badge b-warn">合并</span></td>
+        <td>移到 <code>document/</code>，全项目文档只有一个家。</td></tr>
+    <tr><td><code>document/</code> 101~104 + data/</td><td>文档</td>
+        <td><span class="badge b-ok">保留</span></td>
+        <td>历史数据与完整能力面说明，本文以它们为数据源。</td></tr>
+    <tr><td><code>prompt/</code></td><td>需求</td>
+        <td><span class="badge b-ok">保留</span></td>
+        <td>需求归档，可追溯。</td></tr>
+    <tr><td><code>.vs/</code>、<code>bin/</code>、<code>obj/</code>、<code>output/</code>、
+            <code>trt/build/</code>、引擎缓存</td><td>产物</td>
+        <td><span class="badge b-bad">清理</span></td>
+        <td>已删除并写入 <code>.gitignore</code>（第 11 节）。</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s5">5. 被移除能力的完整档案</h2>
+
+<p>
+  本节把从代码里删掉的四条旁路入口完整记录下来：原来怎么写、为什么删、实测什么水平、
+  将来若要恢复怎么恢复。数据全部来自
+  <code>document/data/acceptance_report.json</code>（原生层，40 图 × 5 次）与
+  <code>document/data/csharp_selftest.json</code>（旧 C# 自测，3 图 × 3 次）。
+</p>
+
+<h3>5.1 byte[] 入口（<code>Process(byte[])</code> → <code>byte[]</code>）</h3>
+
+<h4>原实现</h4>
+<pre><span class="c">// 旧 API：托管数组进、托管数组出</span>
+public byte[] Process(byte[] src)
+{
+    int expected = Info.Width * Info.Height;
+    var dst = new byte[expected];
+    GCHandle hSrc = GCHandle.Alloc(src, GCHandleType.Pinned);
+    GCHandle hDst = GCHandle.Alloc(dst, GCHandleType.Pinned);
+    try   { Process(hSrc.AddrOfPinnedObject(), Info.Width, hDst.AddrOfPinnedObject(), Info.Width, <span class="k">false</span>); }
+    finally { hDst.Free(); hSrc.Free(); }
+    <span class="k">return</span> dst;
+}</pre>
+
+<h4>为什么去掉</h4>
+<ul>
+  <li>每帧多一次 20 MB 托管数组分配 + 两次 <code>GCHandle</code> 固定，但<b>并不省任何搬运</b>
+      —— <code>host_flags=false</code>，仍然走库内页锁暂存，耗时与 Mat 路径相同。</li>
+  <li>接口是「无形状的字节数组」，尺寸/通道全靠长度推断，比 Mat 更容易误用。</li>
+  <li>旧自测 <code>entry_bytes_equal_mat</code> 证明它与 Mat 入口<b>逐位一致</b>，即纯冗余。</li>
+</ul>
+
+<h4>实测</h4>
+<table>
+  <thead><tr><th>口径</th><th class="num">单图 total</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>byte[] 入口</td><td class="num">≈ 5.11 ms</td><td>与 Mat 路径同属 pinned 暂存口径</td></tr>
+    <tr><td>Mat 入口</td><td class="num">4.944 ms</td><td>差异在噪声内</td></tr>
+  </tbody>
+</table>
+
+<h4>若要恢复</h4>
+<p>20 行即可：在 <code>Undistorter</code> 里加一个重载，内部 <code>GCHandle.Alloc</code> +
+调用现有的 <code>internal</code> 指针路径。不建议恢复，除非调用方拿不到 Mat。</p>
+
+<hr>
+
+<h3>5.2 零拷贝 <code>PinnedBuffer</code>（工程推荐的高速路径）</h3>
+
+<h4>原实现</h4>
+<pre><span class="c">// 旧 API：真正的 CUDA 页锁缓冲（cudaHostRegister），可复用</span>
+public sealed class PinnedBuffer : IDisposable
+{
+    public PinnedBuffer(int length)
+    {
+        Array    = GC.AllocateArray&lt;byte&gt;(length, pinned: <span class="k">true</span>);   <span class="c">// 只保证地址不被移动</span>
+        _handle  = GCHandle.Alloc(Array, GCHandleType.Pinned);
+        IntPtr p = _handle.AddrOfPinnedObject();
+        <span class="k">int</span> rc   = NativeMethods.undist_host_register(p, length);     <span class="c">// ← cudaHostRegister，关键一步</span>
+        ...
+    }
+    public IntPtr Pointer { <span class="k">get</span> { ... } }
+}
+
+<span class="c">// 调用侧</span>
+using var pinIn  = new PinnedBuffer(w * h);
+using var pinOut = new PinnedBuffer(w * h);
+pinIn.CopyFrom(src.Data, pinIn.Length);
+und.ProcessPinned(pinIn, pinOut);            <span class="c">// → undist_process(..., host_flags = 1)</span></pre>
+
+<h4>为什么去掉</h4>
+<ul>
+  <li><b>生命周期责任转移</b>：40 MiB 页锁内存（不可换出物理页）要由调用方分配、复用、注销，
+      一旦忘记 Dispose 就是进程级泄漏。</li>
+  <li><b>和 Mat 语义打架</b>：Mat 是「拷进拷出」，零拷贝是「调用方缓冲区直达 DMA」，
+      一个交付层同时提供两套语义，调用方必然选错。</li>
+  <li>收益（1.71×）只在「同进程高频连续处理」成立；交付层的主要场景是单图/低频，
+      且 Mat 路径的 4.944 ms 已满足 202 张/s。</li>
+</ul>
+
+<h4>实测（40 图 × 5 次，RTX 5060 Laptop）</h4>
+<table>
+  <thead><tr><th>口径</th><th class="num">h2d</th><th class="num">infer</th><th class="num">d2h</th>
+      <th class="num">total</th><th class="num">图/s</th><th class="num">vs Mat</th></tr></thead>
+  <tbody>
+    <tr><td>调用方页锁零拷贝（本能力）</td><td class="num">0.770</td><td class="num">1.354</td>
+        <td class="num">0.768</td><td class="num">2.892</td><td class="num">346</td><td class="num">1.71×</td></tr>
+    <tr><td>库内页锁暂存（现交付口径）</td><td class="num">0.780</td><td class="num">1.172</td>
+        <td class="num">0.777</td><td class="num">4.944</td><td class="num">202</td><td class="num">1.00×</td></tr>
+    <tr><td>pageable 直传</td><td class="num">1.913</td><td class="num">1.292</td>
+        <td class="num">2.698</td><td class="num">5.904</td><td class="num">169</td><td class="num">0.84×</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <b>关键数字：</b>零拷贝比 Mat 路径少的 2.051 ms，正好等于库内两次主机行拷贝
+  （<code>staging_host_copy_ms = 2.051</code>）。也就是说两条路径的 PCIe 与 kernel 时间几乎相同
+  （h2d 0.77 / infer 1.2~1.35 / d2h 0.77），差别纯粹在「要不要在主机侧再拷一遍」。
+  pageable 之所以最慢，是因为 h2d/d2h 分别被驱动内部中转放大 2.45× / 3.47×。
+</div>
+
+<h4>若要恢复</h4>
+<pre><span class="c">// 1) 原生侧（能力层已保留这两个导出）</span>
+<span class="k">int</span>  undist_host_register(<span class="k">void</span>* ptr, int64_t bytes);
+<span class="k">void</span> undist_host_unregister(<span class="k">void</span>* ptr);
+
+<span class="c">// 2) C# 侧：恢复 PinnedBuffer.cs（原文件约 100 行）+ 在 Undistorter 加</span>
+<span class="k">public void</span> ProcessPinned(PinnedBuffer src, PinnedBuffer dst)
+    =&gt; Process(src.Pointer, Info.Width, dst.Pointer, Info.Width, pinnedBuffers: <span class="k">true</span>);
+
+<span class="c">// 3) P/Invoke 声明补回 undist_host_register / undist_host_unregister</span></pre>
+
+<hr>
+
+<h3>5.3 裸指针入口与纯 kernel 基准</h3>
+
+<h4>原实现</h4>
+<pre><span class="c">// 任意主机缓冲 + 行跨距（host_flags=1 表示调用方缓冲已页锁）</span>
+<span class="k">public void</span> Process(IntPtr src, <span class="k">int</span> srcStride, IntPtr dst, <span class="k">int</span> dstStride,
+                    <span class="k">bool</span> pinnedBuffers = <span class="k">false</span>);
+
+<span class="c">// 纯 kernel 基准：图只搬一次，连续 enqueueV3 N 次</span>
+<span class="k">public</span> UndistortionTiming BenchKernel(Mat src, <span class="k">int</span> iterations = 50);</pre>
+
+<h4>为什么去掉</h4>
+<ul>
+  <li><b>裸指针入口</b>是零拷贝与外部缓冲的底座；零拷贝被移除后，它只剩「危险但无用」。
+      现在保留为 <code>internal</code> 的 P/Invoke，不对外。</li>
+  <li><b>BenchKernel</b> 是性能归因工具，不是业务路径。它测出的 1.198 ms / 210 GB/s
+      回答了「kernel 是不是表带宽瓶颈」，结论已固化在 UNDIST-102/103。</li>
+</ul>
+
+<h4>实测</h4>
+<table>
+  <thead><tr><th>指标</th><th class="num">值</th><th>含义</th></tr></thead>
+  <tbody>
+    <tr><td>纯 kernel 墙钟</td><td class="num">1.198 ms</td><td>理想下限（图已在显存）</td></tr>
+    <tr><td>表带宽</td><td class="num">210 GB/s</td><td>240 MiB / 1.198 ms</td></tr>
+    <tr><td>kernel 占零拷贝总时间</td><td class="num">46.8%</td><td>其余是 PCIe</td></tr>
+    <tr><td>kernel 占 Mat 路径总时间</td><td class="num">24.2%</td><td>其余是 PCIe + 主机拷贝</td></tr>
+  </tbody>
+</table>
+
+<h4>若要恢复</h4>
+<p>能力层 <code>undist_bench_kernel</code> 仍在，C# 侧补一个 P/Invoke + 20 行包装即可。
+建议只在压测分支里恢复，不要进交付库。</p>
+
+<hr>
+
+<h3>5.4 内存模式切换（pinned ⇄ pageable）</h3>
+
+<h4>原实现</h4>
+<pre><span class="k">public enum</span> HostMemoryMode { Pageable = 0, Pinned = 1 }
+
+<span class="k">public void</span> SetMemoryMode(HostMemoryMode mode);   <span class="c">// 仅重建主机暂存，不重建引擎、不重传表</span></pre>
+
+<h4>为什么去掉</h4>
+<ul>
+  <li>存在的唯一目的是做 <b>A/B 对照</b>（同一 ctx 下切模式，保持引擎与表不变），
+      这是测试诉求，不是业务诉求。</li>
+  <li>生产上一旦页锁内存不足，能力层已经<b>自动回退</b> pageable 并打印一行日志，
+      不需要调用方干预；回退结果可以通过 <code>Info.PinnedStaging == false</code> 观测。</li>
+  <li>保留一个「能把生产性能砍半」的开关，是隐患而不是能力。</li>
+</ul>
+
+<h4>实测</h4>
+<p>
+  pinned 5.904 → 4.944 ms（<code>speedup_pinned_vs_pageable = 1.194</code>）；
+  差异集中在 d2h：0.777 vs 2.698 ms（3.47×）。对照数据见 UNDIST-103。
+</p>
+
+<h4>若要恢复</h4>
+<p>能力层 <code>undist_set_memory_mode</code> 仍在，C# 侧补一个 P/Invoke + 一个方法即可；
+建议只在工具项目的压测子命令里暴露。</p>
+
+<hr>
+
+<h3>5.5 旧 C# 自测 16 项：结论归档</h3>
+
+<p>
+  旧 <code>SelfTest</code> 项目逐项验证了封装契约。项目被重写为工具项目后，这 16 项不再以代码形式存在，
+  结论下表保留；其中第 17 项是<b>新增</b>的交付层验收（40 图逐像素比对）。
+</p>
+
+<table>
+  <thead><tr><th>#</th><th>原用例</th><th>结论</th><th>现在在哪</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><code>info_dims</code></td><td>Info 尺寸 == 初始化尺寸</td><td>文档；运行日志直接打印 Info</td></tr>
+    <tr><td>2</td><td><code>info_table_12bpp</code></td><td>表 = 12.0 B/px</td><td>文档；<code>Info.TableBytesPerPixel</code></td></tr>
+    <tr><td>3</td><td><code>info_table_bytes</code></td><td>表 == W×H×12（251,658,240 B）</td><td>文档；<code>Info.TableBytes</code></td></tr>
+    <tr><td>4</td><td><code>info_device_bytes</code></td><td>显存 == W×H×14（293,601,280 B）</td><td>文档；<code>Info.DeviceBytes</code></td></tr>
+    <tr><td>5</td><td><code>info_gpu_name</code></td><td>能取到 GPU 名</td><td>文档；<code>Info.GpuName</code></td></tr>
+    <tr><td>6</td><td><code>info_trt_version</code></td><td>TRT 版本以 10. 开头</td><td>文档；<code>Info.TensorRtVersion</code></td></tr>
+    <tr><td>7</td><td><code>entry_bytes_equal_mat</code></td><td>byte[] 与 Mat 逐位一致</td><td>文档（入口已删除，见 5.1）</td></tr>
+    <tr><td>8</td><td><code>entry_pinned_equal_mat</code></td><td>零拷贝与 Mat 逐位一致</td><td>文档（入口已删除，见 5.2）</td></tr>
+    <tr><td>9</td><td><code>mode_pageable_restore</code></td><td>模式可切回 Pinned</td><td>文档（能力已移除，见 5.4）</td></tr>
+    <tr><td>10</td><td><code>deterministic_5_runs</code></td><td>连续 5 次输出逐字节相同</td><td>文档（原生层验收仍含 deterministic 检查）</td></tr>
+    <tr><td>11</td><td><code>dispose_then_use_throws</code></td><td>Dispose 后调用抛 <code>ObjectDisposedException</code></td><td>文档；代码保留该行为</td></tr>
+    <tr><td>12</td><td><code>dispose_idempotent</code></td><td>重复 Dispose 安全</td><td>文档；代码保留该行为</td></tr>
+    <tr><td>13</td><td><code>error_matrix_missing</code></td><td>空矩阵目录 → <code>MatrixMissing(-6)</code></td><td>文档；<code>UndistortionException.Code</code></td></tr>
+    <tr><td>14</td><td><code>error_wrong_size</code></td><td>尺寸不符 → <code>ArgumentException</code></td><td>文档；<code>Undistorter.ValidateImage</code></td></tr>
+    <tr><td>15</td><td><code>error_null_src</code></td><td>null Mat → <code>ArgumentNullException</code></td><td>文档；代码保留该行为</td></tr>
+    <tr><td>16</td><td><code>error_channels</code></td><td>CV_8UC3 → <code>ArgumentException</code></td><td>文档；代码保留该行为</td></tr>
+    <tr><td>17</td><td><b>（新增）</b>40 图验收</td><td>diff 5.858×10⁻⁶、max 1、ge2 0、PSNR ≥ 99.47 dB → PASS</td>
+        <td><b>工具项目</b> <code>verify</code>，报告 <code>document/data/csharp_verify.json</code></td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s6">6. 初始化参数：一个 C# 结构体（没有配置文件）</h2>
+
+<p>
+  初始化的全部参数 = 一枚只读结构体 <code>UndistortionConfig</code>（4 个字段），定义在
+  <code>csharp/Undistortion.Inference/UndistortionConfig.cs</code>。
+  <b>项目里没有配置文件</b>：既没有 JSON，也没有“读配置 / 找配置”的类，库内零文件 I/O。
+</p>
+
+<h3>6.1 为什么是结构体，以及为什么把 JSON 也删了</h3>
+
+<div class="two">
+  <div class="card">
+    <h4>交付契约用值类型</h4>
+    <ul style="margin:6px 0;padding-left:20px">
+      <li>只有 4 个字段（1 个字符串 + 3 个 int），传参零堆分配；</li>
+      <li><code>readonly struct</code> + <code>init</code>：构造完不可改，「改尺寸只能重建实例」成为硬约束，
+          避免运行期被改成半新半旧的配置；</li>
+      <li>字段与原生 <code>undist_create</code> / <code>undist_options</code> 一一对应，看一眼就知道传了什么；</li>
+      <li>不绑定文件格式：上位机用自己已有的配置体系填字段即可，<b>库内不做任何文件 I/O</b>。</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>原来那份 JSON 为什么删</h4>
+    <p style="margin:4px 0">它曾经承担三件事：离线工具的默认参数、相对路径基准、以及
+       「配置在哪个文件」的查找顺序。</p>
+    <ul style="margin:6px 0;padding-left:20px">
+      <li>去掉缓存键之后只剩 <b>4 个值</b>（矩阵目录 / 宽 / 高 / 设备号）；</li>
+      <li>只有我们自己的两个离线程序用，<b>上位机从不用</b> —— 没有第二个使用方；</li>
+      <li>这 4 个值<b>脚本本来就知道</b>（<code>run_test.ps1</code> / <code>run_verify.ps1</code> 的默认参数），
+          尺寸还能直接从待处理图像取；</li>
+      <li>代价不划算：一个文件格式 + 一个加载器 + 相对路径规则 + 4 级查找顺序（≈96 行）
+          换 4 个数，而且让“配置”出现两个载体 —— 新人第一句就会问「以哪个为准」；</li>
+      <li>删掉后与仓库里其它工具口径一致：<b>离线参数走命令行</b>（C++ 验收、Python 批处理本来就这样）。</li>
+    </ul>
+  </div>
+</div>
+
+<h3>6.2 结构体定义</h3>
+
+<pre><span class="k">public readonly struct</span> UndistortionConfig
+{
+    <span class="k">public string</span> MatrixDir { <span class="k">get</span>; <span class="k">init</span>; }   <span class="c">// 12 个 .bin 所在目录</span>
+    <span class="k">public int</span>    Width     { <span class="k">get</span>; <span class="k">init</span>; }
+    <span class="k">public int</span>    Height    { <span class="k">get</span>; <span class="k">init</span>; }
+    <span class="k">public int</span>    DeviceId  { <span class="k">get</span>; <span class="k">init</span>; }   <span class="c">// CUDA 设备号，默认 0</span>
+
+    <span class="k">public void</span> Validate();                    <span class="c">// 字段级校验，不碰 GPU</span>
+}</pre>
+
+<p>上位机（每个进程一次）：</p>
+
+<pre><span class="k">var</span> config = <span class="k">new</span> UndistortionConfig
+{
+    MatrixDir = <span class="s">@"D:\opt\undistortion\botong25"</span>,
+    Width     = 5120,
+    Height    = 4096,
+    DeviceId  = 0,
+};
+<span class="k">using var</span> undistorter = <span class="k">new</span> Undistorter(config);</pre>
+
+<h3>6.3 字段</h3>
+
+<table>
+  <thead><tr><th>字段</th><th>类型</th><th>默认</th><th>含义</th><th>映射到原生</th></tr></thead>
+  <tbody>
+    <tr><td><code>MatrixDir</code></td><td>string</td><td>必填</td>
+        <td>含 U_1..U_4 / V_1..V_4 / A1..A4 的目录</td>
+        <td><code>undist_create(matrix_dir_utf8)</code></td></tr>
+    <tr><td><code>Width</code> / <code>Height</code></td><td>int</td><td>必填</td>
+        <td>目标图尺寸，必须等于矩阵尺寸</td><td><code>undist_create(width, height)</code></td></tr>
+    <tr><td><code>DeviceId</code></td><td>int</td><td>0</td><td>CUDA 设备号</td>
+        <td><code>opt.device_id</code></td></tr>
+    <tr><td><span class="badge b-bad">不提供</span> 日志级别</td><td>—</td><td>固定 0</td>
+        <td>日志只服务离线调用，交付层不暴露开关，见 6.6</td>
+        <td><code>opt.log_level = 0</code></td></tr>
+    <tr><td><span class="badge b-bad">不提供</span> 引擎缓存</td><td>—</td><td>固定 null</td>
+        <td>交付层每次现场构建，缓存只在离线 C ABI 侧用，见 6.7</td>
+        <td><code>undist_create(…, nullptr)</code></td></tr>
+    <tr><td><span class="badge b-info">固定</span> <code>memory_mode</code></td><td>—</td><td>1</td>
+        <td>库内页锁暂存（唯一口径）</td><td><code>opt.memory_mode</code></td></tr>
+    <tr><td><span class="badge b-info">固定</span> <code>channels</code></td><td>—</td><td>1</td>
+        <td>仅单通道</td><td><code>opt.channels</code></td></tr>
+  </tbody>
+</table>
+
+<h3>6.4 参数从哪来（没有配置文件之后）</h3>
+
+<table>
+  <thead><tr><th>调用方</th><th>来源</th><th>写法</th></tr></thead>
+  <tbody>
+    <tr><td>上位机</td><td>它自己的配置体系（INI / 数据库 / 界面 / 安装参数）</td>
+        <td><code>new UndistortionConfig { … }</code>，路径给绝对路径</td></tr>
+    <tr><td>离线 C#（Test / Tools）</td><td>命令行参数</td>
+        <td><code>--matrix &lt;目录&gt; [--device 0]</code>；尺寸取首图 <code>Mat.Width/Height</code></td></tr>
+    <tr><td>离线脚本</td><td><code>run_test.ps1 -Matrix</code> / <code>run_verify.ps1 -Matrix</code></td>
+        <td>默认 <code>undistortion_standaloneV0\botong25</code>，可覆盖</td></tr>
+    <tr><td>C++ 验收 / Python 批处理</td><td>各自命令行</td>
+        <td><code>--matrix</code> <code>--width</code> <code>--height</code></td></tr>
+  </tbody>
+</table>
+
+<pre><span class="c"># 离线最小调用：矩阵目录显式给，尺寸由图像决定</span>
+Undistortion.Test.exe --image demo\raw\PIC_1_1.bmp --matrix …\botong25 --out out.bmp
+
+<span class="c"># 离线验收：矩阵目录 + 数据目录都给，尺寸取首图</span>
+Undistortion.Tools.exe verify --raw …\demo\raw --ref …\demo\output0 --matrix …\botong25
+
+<span class="c"># 脚本层（默认值都在脚本里，可 -Matrix / -Image 覆盖）</span>
+powershell -File scripts\run_verify.ps1 -Limit 3</pre>
+
+<div class="note">
+  <b>为什么尺寸不从命令行来？</b>尺寸本来就由图像决定（必须是 5120×4096 才处理），
+  让调用方填 <code>--width/--height</code> 只是把「图像多宽」抄一遍，抄错还会被原生拒绝。
+  离线工具统一读首图取 <code>Width/Height</code>，少两个参数、少一类错。
+</div>
+
+<div class="warnbox">
+  <b>代价说清楚：</b>删掉 JSON 后，离线工具的路径不再有“相对配置文件所在目录”的自动换算，
+  改由脚本拼绝对路径。<code>Algorithms/undistortion</code> 整棵搬到别的盘时，
+  要确认脚本里 <code>$v0</code>（相邻的 <code>undistortion_standaloneV0</code>）仍然成立 ——
+  目前是「脚本按自身位置向上推两级」，搬迁只要保持同级目录结构就无需改脚本。
+</div>
+
+<h3>6.5 校验</h3>
+<p>
+  <code>UndistortionConfig.Validate()</code> 在<b>不碰 GPU</b> 的前提下先做字段级校验：
+  矩阵目录非空且存在、宽高为正、设备号非负。这样「配置写错」和「引擎起不来」
+  能拿到两种不同且可读的错误。
+</p>
+
+<pre><span class="c">// 配置错误 → 立刻抛，不进原生</span>
+<span class="k">if</span> (string.IsNullOrWhiteSpace(MatrixDir)) throw <span class="k">new</span> ArgumentException(<span class="s">"MatrixDir 不能为空"</span>);
+<span class="k">if</span> (!Directory.Exists(MatrixDir))         throw <span class="k">new</span> DirectoryNotFoundException(...);
+<span class="k">if</span> (Width &lt;= 0 || Height &lt;= 0)             throw <span class="k">new</span> ArgumentOutOfRangeException(nameof(Width), ...);
+<span class="k">if</span> (DeviceId &lt; 0)                          throw <span class="k">new</span> ArgumentOutOfRangeException(nameof(DeviceId), ...);</pre>
+
+<h3 id="s6-6">6.6 日志：为什么 C# 上位机不启用（重点）</h3>
+
+<div class="note">
+  <b>结论：</b>交付层把 <code>log_level</code> 固定为 <b>0</b>，结构体里<b>没有</b>日志字段 ——
+  上位机既不使用也开不了。日志只服务<b>离线</b>调用方（C++ 验收程序 / Python 批处理 / 直接调 C ABI）。
+  日志写 <code>stderr</code>，是开发与验收期的诊断手段，不是产品能力。
+</div>
+
+<h4>三档分别输出什么</h4>
+<table>
+  <thead><tr><th>档位</th><th>输出内容</th><th>谁会用</th></tr></thead>
+  <tbody>
+    <tr><td><b>0</b>（交付层固定）</td>
+        <td>只留<b>必须可见的告警</b>：页锁内存不足 → 回退 pageable、引擎缓存写失败、
+            缓存头不匹配 → 回退构建；外加 TensorRT 的 <code>ERROR</code> 级日志（构建失败原因）</td>
+        <td>C# 上位机、生产</td></tr>
+    <tr><td><b>1</b></td>
+        <td>关键节点：表就绪（像素数 / 有效像素 / 越界比例 / 字节数）、引擎构建或缓存命中耗时、
+            表上传带宽、init 汇总、显存与搬运模式；TensorRT <code>WARNING</code></td>
+        <td>离线验收、性能排障</td></tr>
+    <tr><td><b>2</b></td>
+        <td>逐阶段明细：12 个 <code>.bin</code> 的逐个加载、四抽头掩码过程、TensorRT <code>INFO</code></td>
+        <td>离线算法调试（矩阵换型、尺寸换型）</td></tr>
+  </tbody>
+</table>
+
+<h4>上位机为什么必须关</h4>
+<ul>
+  <li><b>没有控制台</b>：上位机是 GUI 或服务，<code>stderr</code> 要么被丢弃、要么被重定向到文件，
+      成本不可控，还可能被误当成错误输出采集；</li>
+  <li><b>占用启动关键路径</b>：表加载 1.3~2.1 s + 引擎 0.15 s 的窗口里做格式化与 IO，
+      2 档会额外刷十几行；</li>
+  <li><b>绕过宿主日志体系</b>：上位机有自己的日志（分级、落盘、轮转、上报），
+      库直接写 <code>stderr</code> 既不进它的文件也不进它的级别控制；</li>
+  <li><b>生产不该刷诊断信息</b>：0 档之外的内容属于「开发期信息」，上线后是噪音；</li>
+  <li><b>关掉几乎零成本</b>：原生每条日志先做一次 <code>level &lt; need</code> 整数比较就返回，
+      不做字符串格式化，也不进 IO。</li>
+</ul>
+
+<h4>离线怎么开</h4>
+<table>
+  <thead><tr><th>入口</th><th>写法</th></tr></thead>
+  <tbody>
+    <tr><td>C++ 验收程序</td><td><code>test_undist_api.exe … --log 1</code>（或 <code>--log 2</code>）</td></tr>
+    <tr><td>Python 批处理</td><td><code>UndistOptions(memory_mode=1, device_id=0, channels=1, log_level=1)</code></td></tr>
+    <tr><td>直接 C ABI</td><td><code>opt.log_level = 1;</code></td></tr>
+    <tr><td>C# 交付层</td><td><b>不提供</b>（结构体无该字段，ctor 内写死 0）</td></tr>
+  </tbody>
+</table>
+
+<h4>上位机排障用什么</h4>
+<p>
+  不用日志文本，用三个结构化出口：<code>Undistorter.Info</code>（尺寸 / 表与显存 / GPU / TRT 版本 /
+  初始化耗时 / 是否回退 pageable）、<code>Undistorter.LastTiming</code>（h2d / infer / d2h / total）、
+  <code>UndistortionException.Code</code> + 原生错误串（12 个错误码，见附录 13.1）。
+  这三样足够定位「矩阵缺失 / 尺寸不符 / 显存不足 / 缓存不匹配 / 推理失败」。
+</p>
+
+<div class="warnbox">
+  <b>若某个 C# 离线工具确实需要日志</b>（例如换矩阵后逐 <code>.bin</code> 核对）：
+  在结构体加回 <code>public int LogLevel { get; init; }</code>、ctor 里改成
+  <code>log_level = config.LogLevel</code>，共 2 行。但请在注释里标明「离线专用，上位机保持 0」，
+  不要把它当成交付能力重新暴露出去。
+</div>
+
+<h3 id="s6-7">6.7 引擎缓存：交付层为什么固定关闭（重点）</h3>
+
+<h4>先把代价量出来</h4>
+
+<p>
+  同一台机器、同一张图、同一个进程模板，只改「有没有缓存」，量进程总时长：
+</p>
+
+<table>
+  <thead><tr><th>口径</th><th class="num">进程总时长</th><th class="num">其中引擎阶段</th><th class="num">初始化合计</th></tr></thead>
+  <tbody>
+    <tr><td><b>不缓存</b>（本次选择，交付层固定）</td>
+        <td class="num">8.51 s</td><td class="num">≈ 6.7 s（构建）</td><td class="num">≈ 7.5 s</td></tr>
+    <tr><td><b>命中缓存</b></td>
+        <td class="num">1.79 s</td><td class="num">0.15 s（反序列化）</td><td class="num">≈ 1.6 s</td></tr>
+    <tr><td>差值</td><td class="num"><b>6.7 s / 进程</b></td><td class="num">6.55 s</td><td class="num">5.9 s</td></tr>
+  </tbody>
+</table>
+
+<p class="small">
+  测量方式：<code>Undistortion.Tools verify --limit 1</code>，冷/热各一次，秒表量整个进程。
+  表（240 MiB）两边都要现场构建，所以差值就是引擎构建成本。
+</p>
+
+<h4>结论：交付层固定「每次构建」</h4>
+
+<div class="note">
+  <ul style="margin:6px 0 0;padding-left:20px">
+    <li><b>上位机的形态就是「一次启动、长期运行」</b>：6.7 s 只在进程启动时付一次，
+        之后每帧 5 ms，占比可忽略；</li>
+    <li>换来的是一串问题同时消失：路径是否存在、目录是否可写、多实例并发写、缓存与 GPU/TRT 版本不匹配；</li>
+    <li>还消掉一个隐性黑盒：启动耗时变成<b>恒定</b>的，不需要再解释「这次为什么快 / 慢」；</li>
+    <li>参数与代码一起变少：结构体 4 个字段，没有路径拼接、没有目录创建、没有写失败分支。</li>
+  </ul>
+</div>
+
+<h4>另外两种做法（评估过，不用）</h4>
+
+<table>
+  <thead><tr><th>方案</th><th>不采用的原因</th></tr></thead>
+  <tbody>
+    <tr><td><b>B. 自动到执行目录找，找不到就构建</b></td>
+        <td>① 程序目录常为只读（Program Files / 受控部署）：能读命中，但<b>写不进去</b>，
+            未预置时静默退化成「每次构建」；<br>
+            ② 文件名必须由库约定（尺寸 / 变体 / TRT 版本），否则多尺寸互相覆盖；<br>
+            ③ 行为不可观测 —— 上位机日志是关的，「这次为什么慢、缓存从哪来」无从得知；<br>
+            ④ 多实例首启会抢写同一文件</td></tr>
+    <tr><td><b>C. 收一个可选缓存目录</b></td>
+        <td>能力本身没问题，但为「一次启动」的进程多开一个部署决策 + 一个参数 + 一段目录/文件名逻辑，
+            收益抵不过复杂度；真需要时按下面的 5 行恢复即可</td></tr>
+  </tbody>
+</table>
+
+<h4>缓存能力没有丢：退到 C ABI</h4>
+
+<p>离线工具每次进程都新起，缓存能省 6.7 s/次，所以那边继续用：</p>
+
+<table>
+  <thead><tr><th>入口</th><th>写法</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>C++ 验收</td><td><code>--engine-cache …\cache\undist_5120x4096.engine</code></td>
+        <td rowspan="2">init ≈1.6 s（命中缓存）</td></tr>
+    <tr><td>Python 批处理</td><td><code>cache = ROOT/Algorithms/undistortion/trt/build/cache</code>（默认已给）</td></tr>
+    <tr><td>直接 C ABI</td><td><code>undist_create(…, "…\undist_5120x4096.engine", &amp;ctx)</code></td>
+        <td>第 5 个参数就是缓存文件</td></tr>
+    <tr><td>C# 交付层</td><td><b>不提供</b></td>
+        <td>ctor 里第 5 个参数写死 <code>null</code></td></tr>
+  </tbody>
+</table>
+
+<h4>上位机哪天要开缓存，怎么恢复</h4>
+
+<pre><span class="c">// 1) 结构体加一个字段（4 → 5 个字段）</span>
+<span class="k">public string</span>? EngineCacheDir { <span class="k">get</span>; <span class="k">init</span>; }
+
+<span class="c">// 2) ctor 里把写死的 null 换成拼好的文件路径</span>
+<span class="k">string</span>? cache = config.EngineCacheDir <span class="k">is null</span> ? <span class="k">null</span>
+    : Path.Combine(config.EngineCacheDir, <span class="s">$"undist_{config.Width}x{config.Height}.engine"</span>);
+NativeMethods.undist_create(…, cache, <span class="k">out</span> _handle);</pre>
+
+<h4>缓存文件本身（不变）</h4>
+
+<p>
+  TensorRT 把网络编译结果序列化成 <b>37,980 字节</b>的 blob（见
+  <code>acceptance_report.json</code> 的 <code>init.engine_bytes</code>），不含任何图像数据。
+  32 B 头六项校验：
+</p>
+
+<pre><span class="c">// 六项全等才复用，否则当作不匹配 → 重建</span>
+<span class="k">struct</span> CacheHeader {
+    <span class="k">char</span>    magic[4];        <span class="c">// "UDV1"</span>
+    int32_t version;         <span class="c">// 头格式版本 = 1</span>
+    int32_t width, height;   <span class="c">// 尺寸</span>
+    int32_t variant;         <span class="c">// 表变体 = 1（F：idx0 + fu + fv）</span>
+    int32_t trt_version;     <span class="c">// getInferLibVersion()</span>
+    int64_t table_bytes;     <span class="c">// 表字节数（变相校验 W×H）</span>
+};</pre>
+
+<h4>部署建议</h4>
+<table>
+  <thead><tr><th>要点</th><th>做法</th><th>不这么做的后果</th></tr></thead>
+  <tbody>
+    <tr><td>位置</td>
+        <td>放<b>可写</b>目录，如 <code>C:\ProgramData\&lt;Product&gt;\undistortion\cache</code></td>
+        <td>放 <code>Program Files</code>：能命中缓存但写不进新缓存；未预置时每次冷构建 ≈6.7 s</td></tr>
+    <tr><td>预置</td>
+        <td>随安装包带一份同 GPU 架构 + 同 TensorRT 版本的 <code>undist_5120x4096.engine</code></td>
+        <td>首启多等 ≈6.7 s；若上位机有启动超时监控，可能误报</td></tr>
+    <tr><td>并发</td>
+        <td>装机/首启时<b>单进程</b>预热一次（跑一次 init 即可）</td>
+        <td>多实例同时首启会同时构建并写同一文件，后写覆盖先写（结果可用，但白做几次 6.7 s）</td></tr>
+    <tr><td>版本</td>
+        <td>换 GPU 卡型或升 TensorRT 后删掉缓存，让库自动重建</td>
+        <td>头校验会挡住不匹配，不会用错引擎，只是退回构建（多 6.7 s）</td></tr>
+    <tr><td>数据安全</td>
+        <td>无需处理：缓存不含图像、不含矩阵，删除无副作用</td>
+        <td>—</td></tr>
+  </tbody>
+</table>
+
+<h4>为什么「表」没有缓存</h4>
+<p>
+  表是 240 MiB（12 B/px × 5120 × 4096）的主机端紧凑表，由 12 个 <code>.bin</code> 现场构建，
+  耗时 1.3~2.1 s。<b>不做表缓存</b>是刻意的：落盘要 240 MiB、读回也要 240 MiB，
+  在 NVMe 上并不比直接算快多少，却带来「矩阵换了但缓存没换」的一致性风险。
+  所以初始化的下限就是这 1.3~2.1 s，引擎缓存只能把 6.7 s 这头压下去。
+</p>
+
+<h4>离线怎么用</h4>
+<p>
+  <code>trt/build/cache/undist_5120x4096.engine</code>（已 gitignore，可随时删）：
+  C++ 验收程序用 <code>--engine-cache</code> 直接指文件，<code>undist_batch.py</code> 默认指向这个目录。
+  C# 的两个离线程序（<code>Test</code> / <code>Tools</code>）<b>不缓存</b> —— 它们与交付层共用同一套调用，
+  这也顺带保证「C# 侧怎么跑，上位机就怎么跑」。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="s7">7. 对象命名规范化</h2>
+
+<h3>7.1 旧 → 新 映射</h3>
+<table>
+  <thead><tr><th>旧</th><th>新</th><th>规则</th></tr></thead>
+  <tbody>
+    <tr><td>命名空间 <code>UndistortionV1Inference</code></td><td><code>Undistortion.Inference</code></td>
+        <td>版本号不进代码名（目录早已没有 V1）；命名空间 = 项目名</td></tr>
+    <tr><td>项目 <code>UndistortionV1Inference</code> / <code>Sample</code> / <code>SelfTest</code></td>
+        <td><code>Undistortion.Inference</code> / <code>Undistortion.Test</code> / <code>Undistortion.Tools</code></td>
+        <td>按<b>角色</b>命名，三个项目同一前缀，VS 里自动聚在一起</td></tr>
+    <tr><td><code>UndistortionOptions</code>（class）</td><td><code>UndistortionConfig</code>（<b>readonly struct</b>，4 字段）</td>
+        <td>它就是「全部初始化配置」，不只是可选项目；值类型 + <code>init</code>，无堆分配、构造后不可改</td></tr>
+    <tr><td>配置文件 <code>config/undistortion.json</code> + <code>UndistortionConfigLoader</code></td>
+        <td>（删除）</td>
+        <td>只剩 4 个数且只有离线工具用；参数改走命令行，尺寸取首图，一个配置概念就够</td></tr>
+    <tr><td><code>UndistortionOptions.ToNative()</code></td><td>（删除）</td>
+        <td>只有一处调用，直接内联进 <code>Undistorter</code> 构造，少一层间接</td></tr>
+    <tr><td><code>HostMemoryMode</code> 枚举</td><td>（删除）→ <code>Info.PinnedStaging</code> (bool)</td>
+        <td>对交付层来说只有「页锁 / 回退」两态，bool 比枚举更直白</td></tr>
+    <tr><td><code>Info.TableVariant</code></td><td>（删除）</td>
+        <td>变体 F 是唯一实现，恒为 1，写进文档即可</td></tr>
+    <tr><td><code>Info.MemoryMode</code></td><td><code>Info.PinnedStaging</code></td>
+        <td>名字说清楚是「暂存方式」而不是「模式开关」</td></tr>
+    <tr><td>字段 <code>_ctx</code></td><td><code>_handle</code></td>
+        <td><code>IntPtr</code> 在这里就是句柄，<code>ctx</code> 是 C 侧叫法</td></tr>
+    <tr><td><code>ImageCompare</code> / <code>ImageDiff</code></td><td><code>ImageComparer</code> / <code>ImageDiff</code>（工具项目）</td>
+        <td>工具类用 <code>-er</code> 表「执行者」；结果类型保持名词</td></tr>
+    <tr><td><code>Process(Mat src, Mat? dst = null)</code></td><td><code>Process(Mat)</code> + <code>Process(Mat, Mat)</code></td>
+        <td>可选参数返回 Mat 的写法有歧义（谁负责释放？），拆成两个语义明确的重载</td></tr>
+    <tr><td>方法 <code>QueryLastTiming()</code></td><td>（删除，用 <code>LastTiming</code> 属性）</td>
+        <td>一次原生调用换一个已有值，没必要</td></tr>
+    <tr><td>参数名 <code>matrixDir / engineCachePath</code></td>
+        <td><code>MatrixDir</code>（缓存参数整条删除）</td>
+        <td>缓存是离线能力，不进交付层参数；结构体只剩 4 个字段</td></tr>
+  </tbody>
+</table>
+
+<h3>7.2 约定（写进代码注释，后续照此扩展）</h3>
+<ul>
+  <li><b>命名空间 = 项目名</b>：<code>Undistortion.Inference</code>、<code>Undistortion.Tools</code>；
+      不再出现 <code>V1</code>、<code>TRT</code>、<code>CSharp</code> 这类实现细节前缀。</li>
+  <li><b>一个公开类型一个文件，文件名 = 类型名</b>（类库 5 个文件对应 5 个类型）。</li>
+  <li><b>类名用名词，工具类用 <code>-er</code></b>（<code>Undistorter</code>、<code>ImageComparer</code>；
+      数据类用 <code>Info</code> / <code>Timing</code> / <code>Config</code> / <code>Exception</code>）。</li>
+  <li><b>私有字段 <code>_camelCase</code></b>，公开属性 <code>PascalCase</code>，参数 <code>camelCase</code>。</li>
+  <li><b>不用可选参数表达「两种语义」</b>：要么两个重载，要么一个明确的方法名。</li>
+  <li><b>抛异常带上下文</b>：<code>UndistortionException</code> 一定带原生错误码 + 原生错误串。</li>
+  <li><b>文件头注释写清「这个文件负责什么、不负责什么」</b>，避免再次长出旁路能力。</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s8">8. 三个 C# 项目的职责与用法</h2>
+
+<h3>8.1 主项目 <code>Undistortion.Inference</code></h3>
+
+<table>
+  <thead><tr><th>公开成员</th><th>签名</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>UndistortionConfig</code><br><span class="small">readonly struct</span></td>
+        <td>4 个 <code>init</code> 属性<br><code>Validate()</code></td>
+        <td>初始化参数契约（矩阵目录 / 宽高 / 设备号）；<b>无日志、无缓存字段</b>、无文件 I/O</td></tr>
+    <tr><td><code>Undistorter</code></td><td><code>Undistorter(UndistortionConfig)</code></td>
+        <td>初始化：表 → 引擎 → 显存 → 页锁暂存</td></tr>
+    <tr><td></td><td><code>Mat Process(Mat src)</code></td>
+        <td>新建输出 Mat，调用方负责 Dispose</td></tr>
+    <tr><td></td><td><code>void Process(Mat src, Mat dst)</code></td>
+        <td>写入复用缓冲（高频路径）</td></tr>
+    <tr><td></td><td><code>UndistortionInfo Info { get; }</code></td>
+        <td>尺寸 / 表与显存 / GPU / TRT 版本 / 初始化耗时</td></tr>
+    <tr><td></td><td><code>UndistortionTiming LastTiming { get; }</code></td>
+        <td>h2d / infer / d2h / total（ms）</td></tr>
+    <tr><td></td><td><code>Dispose()</code></td>
+        <td>释放句柄；幂等；终结器兜底</td></tr>
+    <tr><td><code>UndistortionException</code></td><td><code>Code</code>（<code>UndistErrorCode</code>）</td>
+        <td>原生失败统一异常</td></tr>
+  </tbody>
+</table>
+
+<p class="small">
+  合计 6 个公开成员（ctor + 2 个 Process + Info + LastTiming + Dispose），
+  另加 1 个结构体（<code>UndistortionConfig</code>）、1 个异常类、2 个结果类、1 个错误码枚举。
+  类库共 5 个源文件。
+</p>
+
+<h3>8.2 测试项目 <code>Undistortion.Test</code>（85 行）</h3>
+
+<pre><span class="c">// 1) 加载指定图像（尺寸来自图像本身）</span>
+<span class="k">using</span> Mat src = Cv2.ImRead(imagePath, ImreadModes.Grayscale);
+<span class="k">if</span> (src.Empty()) <span class="k">return</span> 3;
+
+<span class="c">// 2) 初始化参数 = 结构体（矩阵目录来自命令行，尺寸取图像）</span>
+<span class="k">var</span> config = <span class="k">new</span> UndistortionConfig
+{
+    MatrixDir = matrixDir, Width = src.Width, Height = src.Height,
+};
+
+<span class="c">// 3) 初始化 → 4) 执行 → 5) 离开作用域释放</span>
+<span class="k">using var</span> undistorter = <span class="k">new</span> Undistorter(config);
+<span class="k">using</span> Mat dst = undistorter.Process(src);
+Cv2.ImWrite(outPath, dst);</pre>
+
+<p>实际输出：</p>
+<pre>in    : ...\demo\raw\PIC_1_1.bmp (5120x4096, CV_8UC1)
+out   : ...\Undistortion.Test\output\PIC_1_1.bmp (5120x4096)
+info  : 5120x4096 x1, table=240.0 MB (12.0 B/px), device=280.0 MB, staging=pinned,
+        gpu=NVIDIA GeForce RTX 5060 Laptop GPU (26 SM), trt=10.14.1
+timing: h2d=0.831 infer=1.885 d2h=0.802 total=8.978 ms</pre>
+
+<p class="small">
+  首帧 8.9 ms 含冷启动页错误；稳定值见第 10 节 ≈ 5 ms。
+  注意输出里<b>没有</b> <code>[undist][tables]</code> / <code>[undist][engine]</code> 之类的行 ——
+  交付层 <code>log_level = 0</code>，日志默认不出现。
+</p>
+
+<h3>8.3 工具项目 <code>Undistortion.Tools</code>（296 行）</h3>
+
+<pre>Undistortion.Tools verify --raw &lt;目录&gt; [--ref &lt;CPU 参考目录&gt;] [--out &lt;输出目录&gt;]
+                          [--limit N] [--json &lt;报告文件&gt;] [--config &lt;json&gt;]</pre>
+
+<ul>
+  <li>给了 <code>--ref</code>：逐像素比对并判定 PASS/FAIL，退出码 0/1，可写 JSON 报告；</li>
+  <li>不给 <code>--ref</code>：只跑一遍看吞吐；</li>
+  <li><code>--out</code> 可选落盘去畸变结果；</li>
+  <li>判定阈值与历史口径一致：<code>max|d| ≤ 1</code>、差异比例 <code>≤ 1e-5</code>、
+      <code>≥2 差异 == 0</code>、<code>PSNR ≥ 60 dB</code>。</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s9">9. 构建与运行</h2>
+
+<table>
+  <thead><tr><th>脚本</th><th>作用</th><th>典型用法</th></tr></thead>
+  <tbody>
+    <tr><td><code>scripts/_env.ps1</code></td><td>把 TensorRT / CUDA 运行库目录加入 <code>PATH</code></td>
+        <td>被下面各脚本 <code>.</code> 引入</td></tr>
+    <tr><td><code>scripts/build_native.ps1</code></td><td>CMake + Ninja 构建 <code>undist_api.dll</code> 与验收 exe</td>
+        <td><code>powershell -File scripts\build_native.ps1</code></td></tr>
+    <tr><td><code>scripts/run_test.ps1</code></td><td>构建 C# 解决方案 + 跑最小调用测试</td>
+        <td><code>... run_test.ps1 -Image D:\a.bmp</code></td></tr>
+    <tr><td><code>scripts/run_verify.ps1</code></td><td>40 图验收比对 → <code>document/data/csharp_verify.json</code></td>
+        <td><code>... run_verify.ps1 -Limit 3</code></td></tr>
+    <tr><td><code>scripts/run_acceptance.ps1</code></td><td>原生层四口径全量验收（历史口径复现）</td>
+        <td><code>... run_acceptance.ps1</code></td></tr>
+    <tr><td><code>scripts/undist_batch.py</code></td><td>数据集按子目录批处理，保持同名同结构</td>
+        <td><code>python scripts\undist_batch.py --raw … --out …</code></td></tr>
+  </tbody>
+</table>
+
+<div class="bluebox">
+  <b>构建顺序：</b><code>build_native.ps1</code> 必须先跑一次（C# 项目启动时会检查
+  <code>trt\build\undist_api.dll</code> 是否存在，缺失直接报错并给出提示）。
+  原生库就位后，<code>dotnet build csharp\Undistortion.sln -c Release</code> 即可，
+  三项目共用 <code>Directory.Build.props</code> 里的 DLL 自动拷贝，无需手工复制。
+</div>
+
+<div class="warnbox">
+  <b>目录改名遗留：</b>项目目录曾由 <code>Algorithms/undistortionV1</code> 改名为
+  <code>Algorithms/undistortion</code>，旧 <code>trt/build/CMakeCache.txt</code> 里记录的源目录与
+  新路径不一致，CMake 会直接报 <i>“source … does not match the source … used to generate cache”</i>
+  而拒绝复用。<b>处理：删掉 <code>trt/build</code> 整个目录后重跑
+  <code>build_native.ps1</code></b>（本次重构已按此重建，产物验证通过；
+  引擎缓存 <code>cache/*.engine</code> 与 DLL 构建无关，可先备份再放回，避免 6.7 s 重建）。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s10">10. 验收结果</h2>
+
+<h3>10.1 重构后 40 图全量验收（<code>Undistortion.Tools verify</code>）</h3>
+
+<table>
+  <thead><tr><th>项</th><th class="num">结果</th><th class="num">阈值</th><th>判定</th></tr></thead>
+  <tbody>
+    <tr><td>差异像素 / 总像素</td><td class="num">4,914 / 838,860,800</td><td class="num">—</td><td>—</td></tr>
+    <tr><td>差异比例</td><td class="num">5.858×10⁻⁶</td><td class="num">≤ 1×10⁻⁵</td>
+        <td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>最大绝对差</td><td class="num">1 LSB</td><td class="num">≤ 1</td>
+        <td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>差异 ≥ 2 的像素</td><td class="num">0</td><td class="num">== 0</td>
+        <td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>PSNR 最小值</td><td class="num">99.47 dB</td><td class="num">≥ 60</td>
+        <td><span class="badge b-ok">PASS</span></td></tr>
+    <tr><td>单图总耗时（均值）</td><td class="num">5.631 ms</td><td class="num">—</td><td>177.6 张/s</td></tr>
+  </tbody>
+</table>
+
+<h3>10.2 与重构前的一致性对照</h3>
+
+<table>
+  <thead><tr><th>指标</th><th class="num">C++ 全量验收<br><span class="small">（UNDIST-102，重构前）</span></th>
+      <th class="num">C# 自测 3 图<br><span class="small">（旧 SelfTest）</span></th>
+      <th class="num">C# 工具 40 图<br><span class="small">（本文，重构后）</span></th></tr></thead>
+  <tbody>
+    <tr><td>差异像素</td><td class="num">4,914</td><td class="num">383</td><td class="num">4,914</td></tr>
+    <tr><td>差异比例</td><td class="num">5.858×10⁻⁶</td><td class="num">6.088×10⁻⁶</td><td class="num">5.858×10⁻⁶</td></tr>
+    <tr><td>最大绝对差</td><td class="num">1</td><td class="num">1</td><td class="num">1</td></tr>
+    <tr><td>≥2 差异像素</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr>
+    <tr><td>PSNR 最小</td><td class="num">99.472 dB</td><td class="num">99.763 dB</td><td class="num">99.47 dB</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <b>结论：</b>重构后 40 图的差异像素、差异比例、最大差、≥2 计数与重构前 C++ 验收<b>逐项相同</b>
+  （4914 / 5.858×10⁻⁶ / 1 / 0）。说明「砍掉旁路入口」没有触碰任何计算路径 ——
+  Mat 路径原本就是「pageable 进 → 库内页锁暂存 → GPU → 库内暂存 → pageable 出」的那一条。
+</div>
+
+<h3>10.3 耗时对照（RTX 5060 Laptop / TRT 10.14.1 / 5120×4096）</h3>
+
+<table>
+  <thead><tr><th>口径</th><th class="num">h2d</th><th class="num">infer</th><th class="num">d2h</th>
+      <th class="num">total</th><th class="num">图/s</th><th>状态</th></tr></thead>
+  <tbody>
+    <tr><td>纯 kernel（图已在显存）</td><td class="num">—</td><td class="num">1.198</td><td class="num">—</td>
+        <td class="num">1.198</td><td class="num">835</td><td>仅能力层</td></tr>
+    <tr><td>调用方页锁零拷贝</td><td class="num">0.770</td><td class="num">1.354</td><td class="num">0.768</td>
+        <td class="num">2.892</td><td class="num">346</td><td>已移除（档案 5.2）</td></tr>
+    <tr><td><b>库内页锁暂存（交付口径）</b></td><td class="num">0.780</td><td class="num">1.172</td>
+        <td class="num">0.777</td><td class="num">4.944</td><td class="num">202</td>
+        <td><span class="badge b-ok">唯一路径</span></td></tr>
+    <tr><td>pageable 直传</td><td class="num">1.913</td><td class="num">1.292</td><td class="num">2.698</td>
+        <td class="num">5.904</td><td class="num">169</td><td>仅能力层回退</td></tr>
+  </tbody>
+</table>
+
+<p class="small">
+  纯 kernel 1.198 ms 与 CPU 63.82 ms 相比为 53.3×；交付口径 4.944 ms 为 12.9×。
+  本次重构后工具实测 <b>5.5~6.1 ms/图</b>（含每图 BMP 读取与逐像素比对开销，末次 5.631，
+  见 <code>csharp_verify.json</code> 的 <code>timing.mean_total_ms</code>），比纯库内口径高 0.4~0.7 ms。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="s11">11. .gitignore 上传规则</h2>
+
+<p>规则以 <code>Algorithms/undistortion</code> 为根，原则是「<b>能由脚本重建的一律不入库</b>」。</p>
+
+<div class="two">
+  <div class="card">
+    <h4><span class="badge b-ok">入库</span></h4>
+    <ul style="margin:6px 0;padding-left:20px">
+      <li><code>trt/src/</code>、<code>trt/include/</code>、<code>trt/CMakeLists.txt</code>、<code>trt/tests/</code></li>
+      <li><code>csharp/**/*.cs</code>、<code>*.csproj</code>、<code>*.sln</code>、<code>Directory.Build.props</code></li>
+      <li><code>scripts/*.ps1</code>、<code>scripts/*.py</code>（离线参数就在这里）</li>
+      <li><code>document/**/*.html</code>、<code>document/data/*.json|*.csv</code>、<code>document/assets/</code></li>
+      <li><code>prompt/*.md</code>、<code>README.md</code>、<code>.gitignore</code></li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4><span class="badge b-bad">不入库</span></h4>
+    <ul style="margin:6px 0;padding-left:20px">
+      <li><code>trt/build/</code>（含 <code>build-*</code>、<code>out/</code>）</li>
+      <li><code>csharp/**/bin/</code>、<code>obj/</code>、<code>output/</code>、<code>.vs/</code></li>
+      <li><code>trt/build/cache/</code>、<code>**/*.engine</code>（绑定 GPU 架构 + TRT 版本）</li>
+      <li><code>document/data/preview/</code>、<code>document/data/*.bmp</code>（大图预览）</li>
+      <li><b>凭据 / 令牌</b>（<code>*access-token*</code>、<code>*secret*</code>、<code>.env*</code>）——
+          仓库策略：密钥不得上传、不得保留</li>
+      <li><code>__pycache__/</code>、<code>*.pyc</code>、<code>*.log</code>、<code>*.tmp</code></li>
+      <li><code>*.suo</code>、<code>*.user</code>、<code>.idea/</code>、<code>Thumbs.db</code></li>
+    </ul>
+  </div>
+</div>
+
+<p class="small">
+  相比重构前的 14 行，主要变化：<code>csharp/SelfTest/output/</code>（写死项目名）→
+  <code>csharp/**/output/</code>（按模式匹配）；新增 Python 缓存、本地配置覆盖、
+  <code>**/*.engine</code>、<code>document/data/*.bmp</code>、IDE 杂项。
+  原本 <code>trt/build/</code> 与 <code>trt/build/cache/</code> 重复，保留两行但补了注释说明意图。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="s12">12. 迁移对照与风险</h2>
+
+<h3>12.1 旧代码 → 新代码</h3>
+
+<table>
+  <thead><tr><th>旧写法</th><th>新写法</th></tr></thead>
+  <tbody>
+    <tr><td><code>new Undistorter(matrixDir, w, h, options, cachePath)</code></td>
+        <td><code>new Undistorter(new UndistortionConfig { MatrixDir, Width, Height, DeviceId })</code></td></tr>
+    <tr><td><code>new UndistortionOptions { MemoryMode = Pinned, LogLevel = 1 }</code></td>
+        <td>结构体只剩 <code>DeviceId</code>；<code>memoryMode</code> 固定、<b>日志与缓存不再暴露</b>
+            （离线调用方在 C ABI 侧开，见 6.6 / 6.7）</td></tr>
+    <tr><td><code>UndistortionConfigLoader.Load()</code> / <code>--config &lt;json&gt;</code></td>
+        <td>（删除）离线改传 <code>--matrix &lt;目录&gt;</code>，尺寸取首图 <code>Mat.Width/Height</code></td></tr>
+    <tr><td><code>und.Process(src, dst)</code>（返回 Mat，dst 可空）</td>
+        <td><code>und.Process(src)</code> 或 <code>und.Process(src, dst)</code>（void）</td></tr>
+    <tr><td><code>und.Process(src)</code>（byte[] 入口）</td><td>（删除）改用 Mat</td></tr>
+    <tr><td><code>und.ProcessPinned(pinIn, pinOut)</code></td><td>（删除）改用 Mat；性能见 5.2</td></tr>
+    <tr><td><code>und.SetMemoryMode(HostMemoryMode.Pageable)</code></td><td>（删除）由能力层自动回退</td></tr>
+    <tr><td><code>und.BenchKernel(mat, 100)</code></td><td>（删除）改用 C++ 验收程序或恢复包装</td></tr>
+    <tr><td><code>und.QueryLastTiming()</code></td><td><code>und.LastTiming</code></td></tr>
+    <tr><td><code>und.MemoryMode</code></td><td><code>und.Info.PinnedStaging</code></td></tr>
+    <tr><td><code>ImageCompare.Compare(a, b)</code></td><td><code>ImageComparer.Compare(a, b)</code>（工具项目）</td></tr>
+    <tr><td><code>using UndistortionV1Inference;</code></td><td><code>using Undistortion.Inference;</code></td></tr>
+  </tbody>
+</table>
+
+<h3>12.2 破坏性变更</h3>
+<ul>
+  <li><b>类名/命名空间变更</b>：<code>UndistortionV1Inference</code> → <code>Undistortion.Inference</code>，
+      引用了旧类库的工程需要改 <code>using</code> 与项目引用。</li>
+  <li><b>构造函数签名变更</b>：不再接受「散装参数」，必须给 <code>UndistortionConfig</code>。</li>
+  <li><b>6 个公开入口消失</b>：byte[] / ProcessPinned / IntPtr / BenchKernel / SetMemoryMode /
+      QueryLastTiming（替代方案见 12.1）。</li>
+  <li><b>原生 ABI 未变</b>：<code>undist_api.dll</code> 不需要重新编译，
+      旧 DLL 可直接被新 C# 类库调用（实测即用 2026-10-26 构建的 DLL 完成 40 图验收）。</li>
+</ul>
+
+<h3>12.3 风险与对策</h3>
+<table>
+  <thead><tr><th>风险</th><th>影响</th><th>对策</th></tr></thead>
+  <tbody>
+    <tr><td>引擎缓存与 GPU/TRT 版本不匹配</td><td>启动变慢或反序列化失败</td>
+        <td>缓存头校验尺寸/变体/TRT 版本/表字节数，不匹配自动重建；文件可随时删除</td></tr>
+    <tr><td>页锁内存不足</td><td>初始化仍成功，但退化为 pageable（≈ +1 ms/图）</td>
+        <td>能力层自动回退并打日志；<code>Info.PinnedStaging</code> 可观测</td></tr>
+    <tr><td>多线程共享一个实例</td><td>不会崩，但被原生互斥锁串行化</td>
+        <td>类注释已写明「单实例单线程」；并行请每线程一实例（280 MB/实例）</td></tr>
+    <tr><td>配置路径写错 / 矩阵目录缺失</td><td>初始化抛异常</td>
+        <td><code>Validate()</code> 先于 GPU 校验，错误信息含具体路径</td></tr>
+    <tr><td>调用方仍按旧 API 写代码</td><td>编译期即报错</td>
+        <td>12.1 给出逐条替换表；文档 104 保留完整旧入口说明</td></tr>
+    <tr><td>本仓库未纳入 git</td><td>删除的旁路实现无法用 <code>git show</code> 找回</td>
+        <td>本文第 5 节保存了全部关键实现片段与实测数据，可据此重建</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s13">13. 附录</h2>
+
+<h3>13.1 错误码</h3>
+<table>
+  <thead><tr><th class="num">值</th><th>枚举</th><th>含义</th></tr></thead>
+  <tbody>
+    <tr><td class="num">0</td><td><code>Ok</code></td><td>成功</td></tr>
+    <tr><td class="num">-1</td><td><code>InitFailed</code></td><td>CUDA / TensorRT 初始化失败</td></tr>
+    <tr><td class="num">-2</td><td><code>InvalidHandle</code></td><td>句柄为空 / 已释放 / 未就绪</td></tr>
+    <tr><td class="num">-3</td><td><code>InvalidImage</code></td><td>指针为空 / 宽高不符 / stride 非法</td></tr>
+    <tr><td class="num">-4</td><td><code>InferenceFailed</code></td><td><code>enqueueV3</code> 失败</td></tr>
+    <tr><td class="num">-5</td><td><code>NotReady</code></td><td>表 / 引擎未就绪</td></tr>
+    <tr><td class="num">-6</td><td><code>MatrixMissing</code></td><td>矩阵目录或 12 个 .bin 缺失</td></tr>
+    <tr><td class="num">-7</td><td><code>MatrixSize</code></td><td>.bin 大小与 <code>W×H×4</code> 不符</td></tr>
+    <tr><td class="num">-8</td><td><code>OutOfMemory</code></td><td>主机 / 显存分配失败</td></tr>
+    <tr><td class="num">-9</td><td><code>EngineBuild</code></td><td>TRT 引擎构建或反序列化失败</td></tr>
+    <tr><td class="num">-10</td><td><code>Unsupported</code></td><td>通道数不是 1 等未实现能力</td></tr>
+    <tr><td class="num">-11</td><td><code>InvalidArg</code></td><td>出参为空 / 参数自相矛盾</td></tr>
+  </tbody>
+</table>
+
+<h3>13.2 文件变更清单</h3>
+<table>
+  <thead><tr><th>类型</th><th>文件</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge b-ok">新增</span></td>
+        <td><code>csharp/Directory.Build.props</code>、
+            <code>csharp/Undistortion.Inference/{Undistorter,UndistortionConfig,
+            UndistortionInfo,UndistortionException,NativeMethods}.cs</code> 与 csproj、
+            <code>csharp/Undistortion.Test/{Program.cs,*.csproj}</code>、
+            <code>csharp/Undistortion.Tools/{Program.cs,ImageComparer.cs,*.csproj}</code>、
+            <code>csharp/thirdpart/{undist_api.dll,README.md}</code>（交付快照 + 依赖登记）、
+            <code>csharp/document/UNDIST-106-…使用说明….html</code>、
+            <code>csharp/Undistortion.sln</code>、
+            <code>scripts/{_env.ps1,run_test.ps1,run_verify.ps1}</code>、
+            <code>document/UNDIST-105-…html</code>、<code>document/data/csharp_verify.json</code></td></tr>
+    <tr><td><span class="badge b-warn">重写</span></td>
+        <td><code>README.md</code>、<code>.gitignore</code>、<code>scripts/build_native.ps1</code>
+            （构建后自动同步 <code>undist_api.dll</code> 到 <code>csharp/thirdpart</code>）、
+            <code>scripts/run_acceptance.ps1</code>（改用 <code>_env.ps1</code>）</td></tr>
+    <tr><td><span class="badge b-warn">修改</span></td>
+        <td><code>scripts/undist_batch.py</code>（修正仍指向 <code>undistortionV1</code> 的路径）</td></tr>
+    <tr><td><span class="badge b-warn">移动</span></td>
+        <td><code>csharp/document/UNDIST-104-…html</code> → <code>document/</code></td></tr>
+    <tr><td><span class="badge b-bad">删除</span></td>
+        <td><code>config/undistortion.json</code> 与整个 <code>config/</code> 目录、
+            <code>csharp/Undistortion.Inference/UndistortionConfigLoader.cs</code>、
+            <code>csharp/UndistortionV1Inference/</code>（含 <code>PinnedBuffer.cs</code>、
+            <code>ImageCompare.cs</code>、<code>UndistortionTypes.cs</code>）、
+            <code>csharp/Sample/</code>、<code>csharp/SelfTest/</code>、
+            <code>csharp/UndistortionV1.sln</code>、<code>csharp/.vs/</code>、
+            <code>scripts/run_selftest.ps1</code>、各项目 <code>bin/</code> <code>obj/</code>
+            <code>output/</code></td></tr>
+    <tr><td><span class="badge b-info">保留</span></td>
+        <td><code>trt/</code> 全部、<code>document/UNDIST-101~104</code>、
+            <code>document/{assets,data}</code>、<code>prompt/</code></td></tr>
+  </tbody>
+</table>
+
+<h3>13.3 复验命令</h3>
+<pre><span class="c"># 1) 原生库（若 trt\build\undist_api.dll 已存在可跳过）</span>
+powershell -ExecutionPolicy Bypass -File Algorithms\undistortion\scripts\build_native.ps1
+
+<span class="c"># 2) 最小调用测试</span>
+powershell -ExecutionPolicy Bypass -File Algorithms\undistortion\scripts\run_test.ps1
+
+<span class="c"># 3) 40 图验收（应输出 PASS 且 diff=4914/838860800）</span>
+powershell -ExecutionPolicy Bypass -File Algorithms\undistortion\scripts\run_verify.ps1
+
+<span class="c"># 4) 原生层四口径全量验收（历史口径）</span>
+powershell -ExecutionPolicy Bypass -File Algorithms\undistortion\scripts\run_acceptance.ps1</pre>
+
+<hr>
+<p class="small">
+  文档：UNDIST-105 · 2026-11-04 · 环境：RTX 5060 Laptop（8 GiB / 26 SM）· TensorRT 10.14.1 ·
+  CUDA 12.8 · Windows 11 · 图像 5120×4096 灰度（20 MiB/张）· .NET 8.0 · OpenCvSharp4 4.13。
+  数据来源：<code>document/data/acceptance_report.json</code>、<code>csharp_selftest.json</code>、
+  <code>csharp_verify.json</code>（本次重构后实测）。
+</p>
+
+</div>
+</body>
+</html>

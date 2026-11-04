@@ -1,0 +1,363 @@
+{
+  "meta": {
+    "tool": "Undistortion.Tools/verify",
+    "timestamp": "2026-11-04 14:32:39",
+    "config": "5120x4096, matrix=E:\\algrithm\\project\\botong\\davissionNew\\Algorithms\\undistortion_standaloneV0\\botong25, device=0",
+    "raw_dir": "E:\\algrithm\\project\\botong\\davissionNew\\Algorithms\\undistortion_standaloneV0\\demo\\raw",
+    "ref_dir": "E:\\algrithm\\project\\botong\\davissionNew\\Algorithms\\undistortion_standaloneV0\\demo\\output0",
+    "images": 40,
+    "width": 5120,
+    "height": 4096
+  },
+  "env": {
+    "gpu": "NVIDIA GeForce RTX 5060 Laptop GPU",
+    "sm_count": 26,
+    "tensorrt": "10.14.1",
+    "staging": "pinned",
+    "table_bytes": 251658240,
+    "device_bytes": 293601280,
+    "init_total_ms": 5724.8
+  },
+  "acceptance": {
+    "passed": true,
+    "criteria": {
+      "max_abs_diff": 1,
+      "diff_ratio": 1E-05,
+      "count_ge2": 0,
+      "psnr_db": 60
+    },
+    "totals": {
+      "diff_pixels": 4914,
+      "pixels": 838860800,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_min_db": 99.472
+    }
+  },
+  "timing": {
+    "mean_total_ms": 5.99,
+    "images_per_second": 166.9
+  },
+  "images": [
+    {
+      "name": "PIC_1_1.bmp",
+      "diff_pixels": 128,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.275,
+      "total_ms": 11.572
+    },
+    {
+      "name": "PIC_1_10.bmp",
+      "diff_pixels": 144,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 99.763,
+      "total_ms": 5.854
+    },
+    {
+      "name": "PIC_1_2.bmp",
+      "diff_pixels": 111,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.894,
+      "total_ms": 5.856
+    },
+    {
+      "name": "PIC_1_3.bmp",
+      "diff_pixels": 101,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 101.304,
+      "total_ms": 5.351
+    },
+    {
+      "name": "PIC_1_4.bmp",
+      "diff_pixels": 102,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 101.261,
+      "total_ms": 5.45
+    },
+    {
+      "name": "PIC_1_5.bmp",
+      "diff_pixels": 103,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 101.219,
+      "total_ms": 5.286
+    },
+    {
+      "name": "PIC_1_6.bmp",
+      "diff_pixels": 105,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 101.135,
+      "total_ms": 4.975
+    },
+    {
+      "name": "PIC_1_7.bmp",
+      "diff_pixels": 101,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 101.304,
+      "total_ms": 5.212
+    },
+    {
+      "name": "PIC_1_8.bmp",
+      "diff_pixels": 96,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 101.524,
+      "total_ms": 5.749
+    },
+    {
+      "name": "PIC_1_9.bmp",
+      "diff_pixels": 103,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 101.219,
+      "total_ms": 4.964
+    },
+    {
+      "name": "PIC_2_1.bmp",
+      "diff_pixels": 154,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 99.472,
+      "total_ms": 6.062
+    },
+    {
+      "name": "PIC_2_10.bmp",
+      "diff_pixels": 142,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 99.824,
+      "total_ms": 5.123
+    },
+    {
+      "name": "PIC_2_2.bmp",
+      "diff_pixels": 145,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 99.733,
+      "total_ms": 5.157
+    },
+    {
+      "name": "PIC_2_3.bmp",
+      "diff_pixels": 154,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 99.472,
+      "total_ms": 6.055
+    },
+    {
+      "name": "PIC_2_4.bmp",
+      "diff_pixels": 124,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.413,
+      "total_ms": 5.775
+    },
+    {
+      "name": "PIC_2_5.bmp",
+      "diff_pixels": 137,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 99.98,
+      "total_ms": 5.774
+    },
+    {
+      "name": "PIC_2_6.bmp",
+      "diff_pixels": 135,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.044,
+      "total_ms": 6.945
+    },
+    {
+      "name": "PIC_2_7.bmp",
+      "diff_pixels": 147,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 99.674,
+      "total_ms": 6.405
+    },
+    {
+      "name": "PIC_2_8.bmp",
+      "diff_pixels": 136,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.012,
+      "total_ms": 5.54
+    },
+    {
+      "name": "PIC_2_9.bmp",
+      "diff_pixels": 151,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 99.557,
+      "total_ms": 5.145
+    },
+    {
+      "name": "PIC_3_1.bmp",
+      "diff_pixels": 119,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.592,
+      "total_ms": 5.779
+    },
+    {
+      "name": "PIC_3_10.bmp",
+      "diff_pixels": 118,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.628,
+      "total_ms": 5.809
+    },
+    {
+      "name": "PIC_3_2.bmp",
+      "diff_pixels": 114,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.778,
+      "total_ms": 5.201
+    },
+    {
+      "name": "PIC_3_3.bmp",
+      "diff_pixels": 106,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 101.094,
+      "total_ms": 5.958
+    },
+    {
+      "name": "PIC_3_4.bmp",
+      "diff_pixels": 97,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 101.479,
+      "total_ms": 5.332
+    },
+    {
+      "name": "PIC_3_5.bmp",
+      "diff_pixels": 110,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.933,
+      "total_ms": 5.734
+    },
+    {
+      "name": "PIC_3_6.bmp",
+      "diff_pixels": 119,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.592,
+      "total_ms": 6.023
+    },
+    {
+      "name": "PIC_3_7.bmp",
+      "diff_pixels": 146,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 99.704,
+      "total_ms": 5.86
+    },
+    {
+      "name": "PIC_3_8.bmp",
+      "diff_pixels": 120,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.555,
+      "total_ms": 6.044
+    },
+    {
+      "name": "PIC_3_9.bmp",
+      "diff_pixels": 134,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.076,
+      "total_ms": 5.48
+    },
+    {
+      "name": "STEP_1_1.bmp",
+      "diff_pixels": 146,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 99.704,
+      "total_ms": 6.109
+    },
+    {
+      "name": "STEP_1_10.bmp",
+      "diff_pixels": 153,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 99.5,
+      "total_ms": 5.593
+    },
+    {
+      "name": "STEP_1_2.bmp",
+      "diff_pixels": 119,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.592,
+      "total_ms": 6.316
+    },
+    {
+      "name": "STEP_1_3.bmp",
+      "diff_pixels": 125,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.378,
+      "total_ms": 5.547
+    },
+    {
+      "name": "STEP_1_4.bmp",
+      "diff_pixels": 112,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.855,
+      "total_ms": 5.634
+    },
+    {
+      "name": "STEP_1_5.bmp",
+      "diff_pixels": 113,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.816,
+      "total_ms": 6.169
+    },
+    {
+      "name": "STEP_1_6.bmp",
+      "diff_pixels": 117,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.665,
+      "total_ms": 9.536
+    },
+    {
+      "name": "STEP_1_7.bmp",
+      "diff_pixels": 113,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.816,
+      "total_ms": 6.005
+    },
+    {
+      "name": "STEP_1_8.bmp",
+      "diff_pixels": 105,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 101.135,
+      "total_ms": 6.974
+    },
+    {
+      "name": "STEP_1_9.bmp",
+      "diff_pixels": 109,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_db": 100.973,
+      "total_ms": 6.246
+    }
+  ]
+}

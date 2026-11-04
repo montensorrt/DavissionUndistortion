@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>去畸变 UndistortionV1 —— TRT 推理与 C# 封装 设计与实现</title>
+<style>
+  :root{
+    --ink:#16202b; --ink2:#43535f; --line:#dde4ec; --bg:#f5f8fb; --card:#fff;
+    --accent:#0f7b6c; --accent2:#0a5c50; --blue:#1f6feb; --blue2:#0b4ea2;
+    --ok:#177f4b; --warn:#b45309; --bad:#b91c1c;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+       line-height:1.72;font-size:15px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px 96px}
+  header.hero{background:linear-gradient(135deg,#062f28 0%,#0d5145 52%,#0f7b6c 100%);
+       color:#fff;padding:52px 28px 44px;margin-bottom:34px}
+  header.hero .inner{max-width:1180px;margin:0 auto}
+  header.hero h1{margin:0 0 10px;font-size:31px;letter-spacing:.4px;font-weight:700}
+  header.hero .sub{opacity:.93;font-size:15.5px;max-width:960px}
+  header.hero .tags{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+  header.hero .tag{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+       padding:4px 11px;border-radius:999px;font-size:12.5px}
+  h2{margin:52px 0 14px;font-size:23px;padding-bottom:9px;border-bottom:2px solid var(--accent);
+     color:var(--accent2)}
+  h3{margin:32px 0 10px;font-size:17.5px}
+  h4{margin:22px 0 8px;font-size:15px;color:var(--ink2)}
+  code{font-family:var(--mono);background:#eaf1f6;padding:1.5px 5px;border-radius:4px;
+       font-size:13px;color:#0a5c50}
+  pre{background:#0d1a20;color:#d8e8e4;padding:16px 18px;border-radius:8px;overflow-x:auto;
+      font-family:var(--mono);font-size:12.7px;line-height:1.62;border:1px solid #1b3038}
+  pre .c{color:#78968f}
+  pre .k{color:#6fc9b8}
+  pre .s{color:#a5d6a7}
+  table{border-collapse:collapse;width:100%;margin:16px 0;background:var(--card);
+        border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:13.6px}
+  th,td{padding:8px 11px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#e9f2f0;font-weight:600;color:#123f39;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(even){background:#fbfdfc}
+  td.num,th.num{text-align:right;font-family:var(--mono);font-size:12.9px;white-space:nowrap}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+        padding:18px 22px;margin:18px 0;box-shadow:0 1px 2px rgba(16,32,56,.04)}
+  .kv{display:grid;grid-template-columns:210px 1fr;gap:6px 16px;font-size:14px}
+  .kv dt{color:var(--ink2);font-weight:600}
+  .kv dd{margin:0}
+  .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600}
+  .b-ok{background:#e0f4ee;color:var(--ok);border:1px solid #b4e0d4}
+  .b-warn{background:#fdf1e0;color:var(--warn);border:1px solid #f3d3a3}
+  .b-bad{background:#fdecec;color:var(--bad);border:1px solid #f5c1c1}
+  .b-info{background:#e8f0fd;color:var(--blue2);border:1px solid #c2d9fb}
+  .note{border-left:4px solid var(--accent);background:#eef8f5;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .warnbox{border-left:4px solid var(--warn);background:#fff8ee;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .badbox{border-left:4px solid var(--bad);background:#fff3f3;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .bluebox{border-left:4px solid var(--blue);background:#f0f6ff;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:10px;
+       padding:16px 26px;margin:26px 0}
+  .toc ol{margin:6px 0 0;padding-left:20px}
+  .toc a{color:var(--accent2);text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  .toc > ol > li{margin:4px 0;font-weight:600}
+  .toc ol ol li{font-weight:400;font-size:13.6px}
+  .bar{display:flex;align-items:center;gap:10px;margin:5px 0;font-size:13.2px}
+  .bar .lbl{width:220px;flex:0 0 220px;color:var(--ink2)}
+  .bar .track{flex:1;height:19px;background:#e8eeec;border-radius:4px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:4px}
+  .bar .val{width:150px;flex:0 0 150px;text-align:right;font-family:var(--mono);font-size:12.6px}
+  .small{font-size:12.8px;color:var(--ink2)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:880px){.two{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
+  hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
+  .flow{background:#0d1a20;color:#d8e8e4;border-radius:8px;padding:18px 20px;overflow-x:auto;
+        font-family:var(--mono);font-size:12.3px;line-height:1.55}
+  .flow .b{color:#6fc9b8}
+  .flow .n{color:#f0b862}
+  .flow .g{color:#8fb8b0}
+  .flow .r{color:#f08a8a}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="inner">
+    <h1>去畸变 UndistortionV1 —— TRT 推理与 C# 封装 设计与实现</h1>
+    <div class="sub">
+      以 <code style="background:rgba(255,255,255,.16);color:#fff">undistortion_standaloneV0</code>
+      的 CPU 算法为数值基准，把去畸变做成一个「矩阵目录初始化 → 内存图像进 → 内存图像出」的
+      TensorRT 推理 DLL，并提供 C ABI 与 C# 封装。调用风格对齐
+      <code style="background:rgba(255,255,255,.16);color:#fff">INFER/deploy</code> 的 TRT 框架与
+      <code style="background:rgba(255,255,255,.16);color:#fff">GOLDENLINE1.0/GoldenWire.Core</code>
+      的薄绑定调用逻辑。
+    </div>
+    <div class="tags">
+      <span class="tag">TensorRT 10.14 / CUDA 12.8 / sm_120</span>
+      <span class="tag">变体 F：12 B/px · 240 MiB 表</span>
+      <span class="tag">kernel 1.20 ms · 零拷贝 2.89 ms/图</span>
+      <span class="tag">与 CPU 差异 5.86×10⁻⁶，最大 ±1 LSB</span>
+      <span class="tag">C ABI 10 导出 + C# IDisposable</span>
+      <span class="tag">版本 1.0 / 2026-10-26</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="toc">
+  <b>目录</b>
+  <ol>
+    <li><a href="#s1">结论摘要</a></li>
+    <li><a href="#s2">需求边界与交付物</a></li>
+    <li><a href="#s3">参考基线与继承的工程约定</a>
+      <ol>
+        <li><a href="#s3-1">GOLDENLINE 的检测/分割调用逻辑</a></li>
+        <li><a href="#s3-2">INFER/deploy 的 TRT + C-API + C# 分层</a></li>
+        <li><a href="#s3-3">本工程继承的七条约定</a></li>
+      </ol>
+    </li>
+    <li><a href="#s4">算法 → TensorRT 的映射</a>
+      <ol>
+        <li><a href="#s4-1">CPU 语义的精确形式</a></li>
+        <li><a href="#s4-2">紧凑表：从 32 B/px 到 12 B/px</a></li>
+        <li><a href="#s4-3">网络结构（32 层，无插件）</a></li>
+        <li><a href="#s4-4">边界与数值语义的复刻</a></li>
+      </ol>
+    </li>
+    <li><a href="#s5">总体架构</a>
+      <ol>
+        <li><a href="#s5-1">分层与文件清单</a></li>
+        <li><a href="#s5-2">数据流与生命周期</a></li>
+        <li><a href="#s5-3">并发与线程模型</a></li>
+      </ol>
+    </li>
+    <li><a href="#s6">C ABI 设计</a>
+      <ol>
+        <li><a href="#s6-1">10 个导出</a></li>
+        <li><a href="#s6-2">结构体布局与错误码</a></li>
+        <li><a href="#s6-3">内存、跨距与所有权契约</a></li>
+      </ol>
+    </li>
+    <li><a href="#s7">C# 封装设计</a>
+      <ol>
+        <li><a href="#s7-1">类型与职责</a></li>
+        <li><a href="#s7-2">三种入口：Mat / byte[] / PinnedBuffer</a></li>
+        <li><a href="#s7-3">关键坑：POH ≠ 页锁内存</a></li>
+      </ol>
+    </li>
+    <li><a href="#s8">主机内存搬运：pageable vs pinned</a>
+      <ol>
+        <li><a href="#s8-1">机制差异</a></li>
+        <li><a href="#s8-2">三条路径的实测分解</a></li>
+        <li><a href="#s8-3">工程推荐值与适用边界</a></li>
+      </ol>
+    </li>
+    <li><a href="#s9">实现细节</a>
+      <ol>
+        <li><a href="#s9-1">紧凑表构建</a></li>
+        <li><a href="#s9-2">引擎构建与缓存</a></li>
+        <li><a href="#s9-3">推理路径与计时点</a></li>
+        <li><a href="#s9-4">构建系统</a></li>
+      </ol>
+    </li>
+    <li><a href="#s10">测试与验收设计</a></li>
+    <li><a href="#s11">风险、限制与后续优化</a></li>
+    <li><a href="#s12">附录</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s1">1. 结论摘要</h2>
+
+<div class="card">
+  <div class="kv">
+    <dt>算法可映射性</dt>
+    <dd>整套去畸变只用 TensorRT 原生算子表达（Cast / Shuffle / Concatenation / Gather /
+        ElementWise / Activation(CLIP) / Unary(FLOOR) / Cast），<b>不需要自定义 plugin 或 CUDA kernel</b>。</dd>
+    <dt>交付形态</dt>
+    <dd>一个 <code>undist_api.dll</code>（10 个 C 导出）+ 一个 <code>UndistortionV1Inference</code>
+        .NET 8 类库 + Sample/SelfTest；初始化只传矩阵目录与尺寸，推理内存进、内存出，不落盘。</dd>
+    <dt>结果一致性</dt>
+    <dd>40 张 5120×4096 实测：差异 <b>4,914 / 838,860,800 = 5.86×10⁻⁶</b>，最大 <b>±1 LSB</b>，
+        差 ≥2 的像素 <b>0</b> 个，PSNR 最低 <b>99.47 dB</b>。差异 100% 来自 GPU 的 FMA 末位舍入。</dd>
+    <dt>性能</dt>
+    <dd>kernel <b>1.198 ms</b>；调用方页锁缓冲零拷贝 <b>2.892 ms/图</b>（345 图/s，22.1× CPU）；
+        库内 pinned 暂存 4.944 ms；pageable 直传 5.904 ms；CPU Release 基准 63.82 ms。</dd>
+    <dt>初始化</dt>
+    <dd>12 个 <code>.bin</code>（1 GB）→ 12 B/px 紧凑表 + 引擎加载：<b>2.23 s</b>
+        （表 2.08 s + 引擎缓存 0.15 s）；冷启动构建引擎另加约 3.6 s。</dd>
+    <dt>显存</dt>
+    <dd>表 251.7 MB + 输入/输出 41.9 MB = <b>293.6 MB（280 MiB）/实例</b>。</dd>
+    <dt>最重要的工程结论</dt>
+    <dd>「pinned 比 pageable 快」只在<b>缓冲本身常驻页锁</b>时成立：库内临时 staging 只快 1.19×；
+        真正的零拷贝路径快 <b>2.04×</b>。托管侧 <code>GCHandle(Pinned)</code>/POH
+        <b>不是</b>页锁内存，必须补 <code>cudaHostRegister</code>（实测 5.93 → 2.76 ms）。</dd>
+  </div>
+</div>
+
+<div class="note">
+  一句话方案：离线把 12 张 float 矩阵压成 3 张紧凑表（<code>idx0</code> int32 + <code>fu</code>/<code>fv</code>
+  fp32，共 12 B/px），运行时用一条 32 层 fp32 强类型 TRT 网络做「4-tap gather + 权重重建 + FMA +
+  clamp + floor」，外面套一层与 INFER/deploy 同构的 C ABI 与 C# <code>IDisposable</code> 封装。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s2">2. 需求边界与交付物</h2>
+
+<h3>2.1 需求拆解</h3>
+<table>
+  <thead><tr><th style="width:60px">编号</th><th>需求</th><th>本工程的落地方式</th></tr></thead>
+  <tbody>
+    <tr><td>R1</td><td>基于当前算法方案，把去畸变转为 TRT 推理；调用逻辑参考 GOLDENLINE 的检测/分割</td>
+        <td>沿用「薄 P/Invoke + 显式句柄 + get_error + release」的调用链；TRT 侧用 INFER/deploy 的 C-API 形态。</td></tr>
+    <tr><td>R2</td><td>参考 UNDIST-001/002，把 standaloneV0 架构改为「TRT 封装 + C# 接口封装」的调用路径</td>
+        <td>表构建（CPU）与推理（GPU）分层；C ABI 作为唯一跨语言边界；C# 只做类型映射与生命周期管理。</td></tr>
+    <tr><td>R3</td><td>封装为一个 DLL 和接口：初始化传矩阵地址，推理传 Mat 图像数据、返回内存结果，不考虑落盘</td>
+        <td><code>undist_create(matrix_dir, w, h)</code> + <code>undist_process(src, dst)</code>；
+            图像全程内存，引擎缓存为可选能力（默认关闭）。</td></tr>
+    <tr><td>R4</td><td>封装、测试逻辑参考 INFER/deploy；代码放到 <code>Algorithms\undistortionV1</code></td>
+        <td>目录 <code>trt/</code>（CMake + C-API）、<code>csharp/</code>（类库 + Sample + SelfTest）、
+            <code>scripts/</code>、<code>document/</code>。</td></tr>
+    <tr><td>R5</td><td>用 demo/raw 测试，结果写 demo/output-trt；说明 pageable / pinned 搬运；完成测试与验收并出报告</td>
+        <td>40 张全量输出到 <code>demo/output-trt</code>；验收报告
+            <code>UNDIST-102</code> 含专章与逐图数据。</td></tr>
+  </tbody>
+</table>
+
+<h3>2.2 交付物</h3>
+<table>
+  <thead><tr><th>类别</th><th>路径</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>原生库</td><td><code>trt/build/undist_api.dll</code>（源码 <code>trt/src</code>）</td>
+        <td>10 个 C 导出；依赖 <code>nvinfer_10.dll</code>、<code>cudart64_12.dll</code></td></tr>
+    <tr><td>C ABI</td><td><code>trt/include/undist_api.h</code></td><td>结构体、错误码、契约注释</td></tr>
+    <tr><td>C++ 验收</td><td><code>trt/tests/test_undist_api.cpp</code></td><td>逐图比对 + 三路计时 + 契约用例</td></tr>
+    <tr><td>C# 类库</td><td><code>csharp/UndistortionV1Inference</code></td><td>Mat / byte[] / PinnedBuffer 三种入口</td></tr>
+    <tr><td>样例/自测</td><td><code>csharp/Sample</code>、<code>csharp/SelfTest</code></td><td>调用示例 + 16 项封装自测</td></tr>
+    <tr><td>结果数据</td><td><code>Algorithms/undistortion_standaloneV0/demo/output-trt/*.bmp</code></td><td>40 张 TRT 去畸变结果</td></tr>
+    <tr><td>测试数据</td><td><code>document/data/*.json</code></td><td>验收汇总、逐图 CSV、C# 自测</td></tr>
+    <tr><td>脚本</td><td><code>scripts/build_native.ps1 / run_acceptance.ps1 / run_selftest.ps1</code></td>
+        <td>一键构建与复现</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s3">3. 参考基线与继承的工程约定</h2>
+
+<h3 id="s3-1">3.1 GOLDENLINE 的检测/分割调用逻辑</h3>
+<p>
+  <code>GOLDENLINE1.0\2605CDEPLOY\deploy\GoldenWire.Core\Inference</code> 下有两条关键文件：
+  <code>TrtApi.cs</code> 是纯 P/Invoke 绑定，<code>TrtModelRuntime.cs</code> 负责引擎落盘、参数装配、
+  句柄缓存与批量缓冲。其调用逻辑可以归纳为五步：
+</p>
+<div class="flow">
+<span class="g">// 1) 原生库就绪：应用目录 → runtimes\trt → thirdpart\trt 依次探测</span>
+EnsureNative()
+<span class="g">// 2) 引擎字节落盘 + 生成 C-API 需要的配置（TRT 需要文件路径）</span>
+PrepareEngine(id)  →  yaml
+<span class="g">// 3) 按模型 id 缓存原生句柄：同一引擎多 FOV 共享一个 ctx</span>
+GetOrCreate(id)    →  yolo26det_init_from_yaml / unetv2_init_from_yaml
+<span class="g">// 4) 托管缓冲 pin 住 → 调 C-API → 拷贝回托管数组（每次调用一次边界）</span>
+pin(bytes) → yolo26det_detect_batch(...) → Marshal.Copy
+<span class="g">// 5) 失败不静默回退：get_error(ctx) 取串，抛可操作异常</span>
+if (code != 0) throw ... get_error(ctx)
+</div>
+<p>对本工程直接可复用的三点：</p>
+<ul>
+  <li><b>薄绑定</b>：P/Invoke 层不做业务判断、不缓存状态；句柄与生命周期由上层类管理。</li>
+  <li><b>错误即字符串</b>：所有失败路径都保证 <code>get_error(ctx)</code> 可读，且初始化失败也回写句柄，
+      便于「先取错误、再 release」。</li>
+  <li><b>失败不静默降级</b>：引擎/驱动不匹配时明确报错，不偷偷换 CPU 路径。</li>
+</ul>
+
+<h3 id="s3-2">3.2 INFER/deploy 的 TRT + C-API + C# 分层</h3>
+<p>
+  <code>INFER\deploy\trt</code> 是插件化框架：<code>plugins/&lt;algo&gt;</code> 放算法实现，
+  <code>src/*_api.cpp</code> 是每个算法的 C-API 薄壳，<code>include/*_api.h</code> 是唯一对外契约；
+  <code>csharp/&lt;algo&gt;</code> 一一对应一个类库 + Sample + SelfTest。
+  以 <code>realesrgan_api.h</code> 为例，它确立了本工程照搬的形态：
+</p>
+<ul>
+  <li>一个算法 = 一个 DLL = 一组 <code>extern "C"</code> 导出，<b>不跨边界传 C++ 类型/STL</b>；</li>
+  <li>错误码枚举 + <code>get_error</code> 字符串；</li>
+  <li><code>Info</code> / <code>Timing</code> 结构体回传运行期参数与分段耗时；</li>
+  <li>两段式释放（库分配的输出由 <code>free_image</code> 归还）；</li>
+  <li>C# 侧：<code>NativeMethods</code>（internal）+ <code>Info/Timing/Exception</code> +
+      <code>IDisposable</code> 封装 + 终结器兜底。</li>
+</ul>
+
+<h3 id="s3-3">3.3 本工程继承的七条约定</h3>
+<table>
+  <thead><tr><th style="width:52px">#</th><th>约定</th><th>在本工程中的体现</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>单一 C ABI 边界，POD-only</td><td><code>undist_options / undist_info / undist_timing</code> 全部定长，
+        C# 用 <code>LayoutKind.Sequential</code> 镜像；<code>undist_info</code> 固定 208 字节</td></tr>
+    <tr><td>2</td><td>错误码 + 错误串，不抛异常过边界</td><td>所有导出 <code>try/catch</code> 兜底；C# 再翻译成
+        <code>UndistortionException</code></td></tr>
+    <tr><td>3</td><td>初始化失败也回写句柄</td><td><code>undist_create</code> 先 <code>*out_ctx = ctx</code> 再做事，
+        失败可 <code>get_error</code></td></tr>
+    <tr><td>4</td><td>调用方提供输出缓冲（零分配）</td><td><code>undist_process(src, dst)</code>；
+        C# 由 <code>Mat</code> 或 <code>byte[]</code> 提供</td></tr>
+    <tr><td>5</td><td>分段计时是一等公民</td><td><code>h2d / infer / d2h / total</code>，串行口径，可直接拼报告</td></tr>
+    <tr><td>6</td><td>一个实例 = 一条 stream，不可并发</td><td>内部 <code>std::mutex</code> 串行化，文档明确「每线程一实例」</td></tr>
+    <tr><td>7</td><td>C# 封装薄、可 Dispose、有终结器</td><td><code>Undistorter</code> 只做参数校验、Mat/指针转换、
+        异常映射</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s4">4. 算法 → TensorRT 的映射</h2>
+
+<h3 id="s4-1">4.1 CPU 语义的精确形式</h3>
+<p>
+  CPU 版本（<code>CAPP/src/Undistortion.cpp</code>）在 <code>setConfig</code> 阶段把 12 张矩阵预计算成
+  「每像素 4 个源索引 + 4 个权重」，推理阶段只做加权求和与量化：
+</p>
+<pre>u_k = trunc(U_k), v_k = trunc(V_k)          <span class="c">k = 0..3（双线性 4 抽头）</span>
+valid = ∀k (u_k ≥ 1 ∧ u_k &lt; W ∧ v_k ≥ 1 ∧ v_k &lt; H)
+idx_k = valid ? v_k · W + u_k : N           <span class="c">N = W·H，越界指向值为 0 的哑元</span>
+fu = A2 + A4,  fv = A3 + A4
+w0 = (1−fu)(1−fv), w1 = fu(1−fv), w2 = (1−fu)fv, w3 = fu·fv
+out = uint8( clamp(Σ_k src[idx_k]·w_k, 0, 255) + 0.5 )   <span class="c">先 clamp 后 +0.5，再截断</span>
+</pre>
+<p>
+  注意两个容易被忽略的细节，它们决定了 GPU 能否复刻：
+</p>
+<ol>
+  <li><b>越界是「全有或全无」</b>：4 个抽头只要有一个越界，整个像素输出 0，而不是逐抽头裁剪。
+      实现上把 4 个索引都指向平坦数组末尾的 0，<b>不需要分支</b>。</li>
+  <li><b>量化是 clamp → +0.5 → trunc</b>，等价于 <code>floor(clamp(x)+0.5)</code>（x ∈ [0,255] 时）。
+      TRT 侧用 CLIP + Add(0.5) + FLOOR + Cast(uint8) 逐位对齐。</li>
+</ol>
+
+<h3 id="s4-2">4.2 紧凑表：从 32 B/px 到 12 B/px</h3>
+<p>
+  该 kernel 的瓶颈是「读表」而不是算力。早期原型比较过三种表结构（详见 UNDIST-002 §5）：
+</p>
+<table>
+  <thead><tr><th>变体</th><th>表内容</th><th class="num">B/px</th><th class="num">表大小</th>
+      <th class="num">kernel 实测</th><th>结论</th></tr></thead>
+  <tbody>
+    <tr><td>A</td><td>4×int32 索引 + 4×fp32 权重</td><td class="num">32</td><td class="num">640 MiB</td>
+        <td class="num">2.108 ms</td><td>最直观，最慢</td></tr>
+    <tr><td>E</td><td>1×int32 基址 + 3 次 +1/+W 派生 + 4×fp32 权重</td><td class="num">20</td><td class="num">400 MiB</td>
+        <td class="num">1.349 ms</td><td>少 3 张索引表</td></tr>
+    <tr><td><b>F（本工程）</b></td><td>1×int32 基址 + fu/fv 两张 fp32，权重由乘积重建</td><td class="num">12</td>
+        <td class="num">240 MiB</td><td class="num"><b>0.977 ms</b></td><td>带宽最小，选中</td></tr>
+  </tbody>
+</table>
+<p class="small">上表 kernel 数值来自 UNDIST-002 的原型（RTX 5060 Laptop，fp32，b=1，100 次）；本工程
+  实测 1.198 ms，差异来自驱动/时钟与测量口径，量级一致。</p>
+<p>
+  变体 F 的关键假设是「双线性权重可由两个因子重建」，这已由
+  <code>weight_recon.json</code> 审计：重建权重与 A1..A4 的最大绝对误差
+  <b>1.19×10⁻⁷</b>，抽头几何关系零违例。因此 4 个权重不必存表，只存 <code>fu</code>、<code>fv</code>。
+</p>
+
+<h3 id="s4-3">4.3 网络结构（32 层，无插件）</h3>
+<table>
+  <thead><tr><th style="width:52px">#</th><th>层</th><th>参数</th><th>输出形状</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Cast</td><td>img: uint8 → float32</td><td>[1,1,H,W]</td></tr>
+    <tr><td>2</td><td>Shuffle</td><td>reshape</td><td>[1,N]</td></tr>
+    <tr><td>3</td><td>Constant</td><td>PAD = W+4 个 0</td><td>[1,PAD]</td></tr>
+    <tr><td>4</td><td>Concatenation</td><td>axis=1</td><td>[1,N+PAD] 平坦图</td></tr>
+    <tr><td>5–6</td><td>Constant</td><td>int32 1 / int32 W</td><td>[1,1]</td></tr>
+    <tr><td>7–9</td><td>ElementWise SUM</td><td>idx0+1, idx0+W, (idx0+1)+W</td><td>[1,N] ×3</td></tr>
+    <tr><td>10–13</td><td>Gather (ELEMENT)</td><td>4 个抽头索引在平坦图上取数</td><td>[1,N] ×4</td></tr>
+    <tr><td>14</td><td>Constant</td><td>1.0f</td><td>[1,1]</td></tr>
+    <tr><td>15–16</td><td>ElementWise SUB</td><td>1−fu, 1−fv</td><td>[1,N] ×2</td></tr>
+    <tr><td>17–20</td><td>ElementWise PROD</td><td>w0..w3</td><td>[1,N] ×4</td></tr>
+    <tr><td>21–24</td><td>ElementWise PROD</td><td>g_k · w_k</td><td>[1,N] ×4</td></tr>
+    <tr><td>25–27</td><td>ElementWise SUM</td><td>累加 4 项</td><td>[1,N]</td></tr>
+    <tr><td>28</td><td>Activation CLIP</td><td>α=0, β=255</td><td>[1,N]</td></tr>
+    <tr><td>29–30</td><td>Constant + SUM</td><td>+0.5</td><td>[1,N]</td></tr>
+    <tr><td>31</td><td>Unary FLOOR</td><td>—</td><td>[1,N]</td></tr>
+    <tr><td>32</td><td>Cast</td><td>float32 → uint8</td><td>[1,N] → out_u8</td></tr>
+  </tbody>
+</table>
+<p>
+  4 个网络输入：<code>img</code> uint8 <code>[1,1,H,W]</code>、<code>idx0</code> int32 <code>[1,N]</code>、
+  <code>fu</code>/<code>fv</code> fp32 <code>[1,N]</code>；1 个输出 <code>out_u8</code> uint8
+  <code>[1,N]</code>（内存即连续 N 字节，等价于 H×W 单通道图）。强类型网络（<code>kSTRONGLY_TYPED</code>）
+  保证不做隐式 fp16/量化，精度固定 fp32。
+</p>
+
+<h4>为什么能只存 1 张索引表</h4>
+<p>
+  双线性的 4 个抽头在平坦数组上恰好是 <code>i, i+1, i+W, i+W+1</code>（行主序）。合法性条件
+  <code>u_k ≥ 1 ∧ u_k &lt; W</code> 与 <code>v_k ≥ 1 ∧ v_k &lt; H</code> 保证了
+  <code>i+W+1</code> 不会跨行越界；越界像素的 <code>idx0</code> 已被置为 N。平坦输入尾部补
+  <code>W+4</code> 个 0，使 N..N+W+3 全部读到 0，于是「任一抽头越界 → 输出 0」在 GPU 上变成
+  <b>零分支的 4 次 gather</b>。
+</p>
+
+<h3 id="s4-4">4.4 边界与数值语义的复刻</h3>
+<table>
+  <thead><tr><th>语义</th><th>CPU</th><th>TRT</th><th>一致性</th></tr></thead>
+  <tbody>
+    <tr><td>越界判定</td><td>4 抽头全部在 <code>[1,W)×[1,H)</code></td><td>同一条件离线算进 <code>idx0</code></td>
+        <td><span class="badge b-ok">逐位</span></td></tr>
+    <tr><td>越界输出</td><td>读哑元 0 → 加权和 0</td><td>4 次 gather 都读平坦尾部 0</td>
+        <td><span class="badge b-ok">逐位</span></td></tr>
+    <tr><td>索引取整</td><td><code>static_cast&lt;int&gt;</code>（trunc）</td><td>离线同式</td>
+        <td><span class="badge b-ok">逐位</span></td></tr>
+    <tr><td>权重</td><td>A1..A4 查表</td><td><code>fu/fv</code> 重建（误差 1.19e-7）</td>
+        <td><span class="badge b-warn">±1e-7</span></td></tr>
+    <tr><td>累加</td><td>mul+add（或 CPU 自身 FMA 链）</td><td>FMA 融合</td>
+        <td><span class="badge b-warn">末位舍入</span></td></tr>
+    <tr><td>量化</td><td>clamp → +0.5 → trunc</td><td>CLIP → +0.5 → FLOOR → Cast</td>
+        <td><span class="badge b-ok">逐位</span></td></tr>
+  </tbody>
+</table>
+<p>
+  因此最终差异只可能来自「权重重建的 1e-7 扰动」与「FMA 末位舍入」；实测最大 1 LSB、
+  差异比例 5.86×10⁻⁶，与 CPU 自身「FMA 链 vs mul+add」的 5.44×10⁻⁶ 同量级，
+  说明 <b>TRT 没有引入 CPU 侧不存在的不确定性</b>。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="s5">5. 总体架构</h2>
+
+<h3 id="s5-1">5.1 分层与文件清单</h3>
+<div class="flow">
+<span class="b">C# 调用方</span>（Mat / byte[] / PinnedBuffer）
+   │  Undistorter.Process(...)
+<span class="b">C# 封装层</span>  csharp/UndistortionV1Inference
+   │  P/Invoke（cdecl，POD-only）
+<span class="b">C ABI 层</span>   trt/src/undist_api.cpp        ← 句柄 / 锁 / 参数校验 / 错误串
+   │
+<span class="b">引擎层</span>      trt/src/undist_engine.cpp     ← TRT 构建/缓存、CUDA 内存、三种搬运路径
+   │
+<span class="b">表层</span>        trt/src/undist_tables.cpp     ← 12 个 .bin → idx0/fu/fv（12 B/px）
+   │
+<span class="b">数据</span>        botong25/U_*.bin V_*.bin A*.bin（各 84 MB，列主序）
+</div>
+<table>
+  <thead><tr><th>文件</th><th>职责</th><th>依赖</th></tr></thead>
+  <tbody>
+    <tr><td><code>trt/include/undist_api.h</code></td><td>C ABI 契约（10 导出 + 3 结构体 + 错误码）</td><td>—</td></tr>
+    <tr><td><code>trt/include/undist_tables.h</code></td><td>紧凑表构建接口</td><td>C++17 / filesystem</td></tr>
+    <tr><td><code>trt/include/undist_engine.h</code></td><td>引擎层接口（Pimpl 隐藏 TRT）</td><td>—</td></tr>
+    <tr><td><code>trt/src/undist_tables.cpp</code></td><td>矩阵加载、分块转置、有效性掩码、权重因子</td><td>纯 CPU</td></tr>
+    <tr><td><code>trt/src/undist_engine.cpp</code></td><td>网络构建、引擎缓存、显存/页锁分配、推理与计时</td><td>TensorRT + CUDA</td></tr>
+    <tr><td><code>trt/src/undist_api.cpp</code></td><td>C ABI、句柄、互斥锁、错误串、页锁注册辅助</td><td>—</td></tr>
+    <tr><td><code>trt/tests/test_undist_api.cpp</code></td><td>验收 + 性能 + 契约用例</td><td>OpenCV（仅测试）</td></tr>
+    <tr><td><code>csharp/UndistortionV1Inference/*.cs</code></td><td>P/Invoke、类型、异常、Mat/byte[]/PinnedBuffer</td><td>OpenCvSharp4</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <b>为什么 DLL 不依赖 OpenCV：</b>算法只需要「连续 uint8 + 宽高 + stride」，Mat 只是 C# 侧的容器。
+  把 OpenCV 留在调用方/测试侧，DLL 的依赖面缩到 TensorRT + CUDA，部署包更小、ABI 更稳。
+</div>
+
+<h3 id="s5-2">5.2 数据流与生命周期</h3>
+<div class="flow">
+<span class="n">初始化</span>（一次，~2.2 s）
+  matrix_dir ──► build_tables ──► idx0[84MB] fu[84MB] fv[84MB]
+                                   │
+                                   ├─ cudaMalloc + H2D（252 MB，~27 ms）→ 显存常驻
+                                   └─ build/load engine（37 KB）→ context
+
+<span class="n">推理</span>（每帧）
+  src(pageable/pinned) ──► [H2D] ──► 平坦图 + 4 gather + FMA ──► [D2H] ──► dst
+                              │              │
+                              └── 4 张表只读，不在每帧重传
+</div>
+<p>
+  表与引擎都是「初始化一次、常驻显存」，每帧只有 21 MB 进 + 21 MB 出。用
+  <code>undist_info</code> 可以把 <code>table_bytes</code>、<code>device_bytes</code>、
+  <code>init_*_ms</code> 回传给上层做资源核算与启动耗时上报。
+</p>
+
+<h3 id="s5-3">5.3 并发与线程模型</h3>
+<ul>
+  <li><b>一实例一条 stream、一个 context</b>；<code>undist_process</code> 内部加互斥锁，多线程不会崩但串行。</li>
+  <li>要去并行：<b>每线程一个实例</b>。每实例 280 MiB 显存，8 GiB 卡按显存算可开 20+，工程建议 ≤16 留余量。</li>
+  <li>所有导出函数都 <code>try/catch</code> 兜底，异常不会穿过 C ABI；失败统一写 <code>ctx->error</code>。</li>
+  <li>析构顺序：先释放 CUDA（pinned/device/stream），再销毁 TRT 对象，避免 context 已销毁后释放显存。</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s6">6. C ABI 设计</h2>
+
+<h3 id="s6-1">6.1 10 个导出</h3>
+<table>
+  <thead><tr><th style="width:34px">#</th><th>函数</th><th>作用</th><th>关键返回</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><code>undist_create(matrix_dir, w, h, opt, cache, &amp;ctx)</code></td>
+        <td>加载矩阵 → 建表 → 建/载引擎 → 表上显存</td><td>0 / -6 / -7 / -9 / -8</td></tr>
+    <tr><td>2</td><td><code>undist_process(ctx, src, ss, dst, ds, flags, &amp;timing)</code></td>
+        <td>单图推理，内存进内存出</td><td>0 / -3 / -4</td></tr>
+    <tr><td>3</td><td><code>undist_bench_kernel(ctx, src, iters, &amp;timing)</code></td>
+        <td>图只搬一次，连续 enqueue N 次（纯 kernel）</td><td>0 / -4</td></tr>
+    <tr><td>4</td><td><code>undist_get_info(ctx, &amp;info)</code></td><td>尺寸、表/显存、GPU、TRT 版本、初始化耗时</td><td>0</td></tr>
+    <tr><td>5</td><td><code>undist_get_last_timing(ctx, &amp;timing)</code></td><td>最近一次耗时</td><td>0</td></tr>
+    <tr><td>6</td><td><code>undist_set_memory_mode(ctx, mode)</code></td><td>0=pageable / 1=pinned，只换主机暂存</td><td>0 / -11</td></tr>
+    <tr><td>7</td><td><code>undist_get_error(ctx)</code></td><td>最近一次错误（UTF-8，生命周期同句柄）</td><td>const char*</td></tr>
+    <tr><td>8</td><td><code>undist_release(ctx)</code></td><td>幂等释放</td><td>void</td></tr>
+    <tr><td>9</td><td><code>undist_host_register(ptr, bytes)</code></td><td>把托管缓冲注册为页锁内存（C# 零拷贝用）</td><td>0 / -1 / -11</td></tr>
+    <tr><td>10</td><td><code>undist_host_unregister(ptr)</code></td><td>解除注册</td><td>void</td></tr>
+  </tbody>
+</table>
+
+<h3 id="s6-2">6.2 结构体布局与错误码</h3>
+<div class="two">
+<div>
+<h4>undist_options（16 字节）</h4>
+<table>
+  <thead><tr><th>偏移</th><th>字段</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td class="num">0</td><td><code>memory_mode</code></td><td>0/1，默认 1</td></tr>
+    <tr><td class="num">4</td><td><code>device_id</code></td><td>CUDA 设备号</td></tr>
+    <tr><td class="num">8</td><td><code>channels</code></td><td>仅 1</td></tr>
+    <tr><td class="num">12</td><td><code>log_level</code></td><td>0/1/2</td></tr>
+  </tbody>
+</table>
+</div>
+<div>
+<h4>undist_timing（32 字节）</h4>
+<table>
+  <thead><tr><th>偏移</th><th>字段</th></tr></thead>
+  <tbody>
+    <tr><td class="num">0</td><td><code>h2d_ms</code></td></tr>
+    <tr><td class="num">8</td><td><code>infer_ms</code></td></tr>
+    <tr><td class="num">16</td><td><code>d2h_ms</code></td></tr>
+    <tr><td class="num">24</td><td><code>total_ms</code></td></tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+<h4>undist_info（208 字节）</h4>
+<table>
+  <thead><tr><th>偏移</th><th>字段</th><th>偏移</th><th>字段</th></tr></thead>
+  <tbody>
+    <tr><td class="num">0</td><td><code>table_bytes</code> (int64)</td><td class="num">56</td><td><code>width, height, channels</code></td></tr>
+    <tr><td class="num">8</td><td><code>engine_bytes</code> (int64)</td><td class="num">68</td><td><code>memory_mode, table_variant, sm_count</code></td></tr>
+    <tr><td class="num">16</td><td><code>device_bytes</code> (int64)</td><td class="num">80</td><td><code>gpu_name[96]</code></td></tr>
+    <tr><td class="num">24</td><td><code>table_bytes_per_pixel</code> (double)</td><td class="num">176</td><td><code>tensorrt_version[32]</code></td></tr>
+    <tr><td class="num">32–48</td><td><code>init_table_ms / init_engine_ms / init_total_ms</code></td><td class="num">208</td><td>结构体总长</td></tr>
+  </tbody>
+</table>
+
+<table>
+  <thead><tr><th>错误码</th><th>值</th><th>触发条件</th></tr></thead>
+  <tbody>
+    <tr><td><code>UNDIST_OK</code></td><td class="num">0</td><td>成功</td></tr>
+    <tr><td><code>UNDIST_ERR_INIT_FAILED</code></td><td class="num">-1</td><td>CUDA 初始化/页锁注册失败</td></tr>
+    <tr><td><code>UNDIST_ERR_INVALID_HANDLE</code></td><td class="num">-2</td><td>ctx 为空</td></tr>
+    <tr><td><code>UNDIST_ERR_INVALID_IMAGE</code></td><td class="num">-3</td><td>指针空 / stride &lt; width</td></tr>
+    <tr><td><code>UNDIST_ERR_INFERENCE_FAILED</code></td><td class="num">-4</td><td>enqueueV3 或 memcpy 失败</td></tr>
+    <tr><td><code>UNDIST_ERR_NOT_READY</code></td><td class="num">-5</td><td>初始化失败后继续调用</td></tr>
+    <tr><td><code>UNDIST_ERR_MATRIX_MISSING</code></td><td class="num">-6</td><td>目录/文件缺失</td></tr>
+    <tr><td><code>UNDIST_ERR_MATRIX_SIZE</code></td><td class="num">-7</td><td>文件大小 ≠ W·H·4</td></tr>
+    <tr><td><code>UNDIST_ERR_OUT_OF_MEMORY</code></td><td class="num">-8</td><td>主机/显存分配失败</td></tr>
+    <tr><td><code>UNDIST_ERR_ENGINE_BUILD</code></td><td class="num">-9</td><td>TRT 构建/反序列化失败</td></tr>
+    <tr><td><code>UNDIST_ERR_UNSUPPORTED</code></td><td class="num">-10</td><td>channels ≠ 1</td></tr>
+    <tr><td><code>UNDIST_ERR_INVALID_ARG</code></td><td class="num">-11</td><td>出参空 / 参数矛盾</td></tr>
+  </tbody>
+</table>
+
+<h3 id="s6-3">6.3 内存、跨距与所有权契约</h3>
+<table>
+  <thead><tr><th>对象</th><th>谁分配</th><th>谁释放</th><th>约束</th></tr></thead>
+  <tbody>
+    <tr><td>ctx</td><td>库</td><td><code>undist_release</code></td><td>幂等；失败路径也可能非空</td></tr>
+    <tr><td>表 / 引擎 / 显存</td><td>库</td><td>随 ctx 释放</td><td>常驻，不在每帧重建</td></tr>
+    <tr><td>src / dst</td><td>调用方</td><td>调用方</td><td>H×W 单通道 uint8；stride ≥ W；dst 可带行跨距</td></tr>
+    <tr><td>pinned 暂存</td><td>库（<code>cudaHostAlloc</code>）</td><td>随 ctx / 切模式</td><td>2×21 MB</td></tr>
+    <tr><td>调用方 pinned</td><td>调用方</td><td>调用方（<code>host_unregister</code>）</td><td>须页对齐；配合 <code>host_flags=1</code></td></tr>
+  </tbody>
+</table>
+<div class="warnbox">
+  <b>host_flags 的含义：</b>bit0=1 表示 「src/dst 已经是页锁内存」，库会跳过内部暂存直接异步 DMA。
+  如果调用方传了 <code>host_flags=1</code> 但缓冲其实是普通 pageable 内存，<b>结果仍然正确</b>
+  （CUDA 会自动退回同步语义），只是会变慢且失去异步性。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s7">7. C# 封装设计</h2>
+
+<h3 id="s7-1">7.1 类型与职责</h3>
+<table>
+  <thead><tr><th>类型</th><th>对应基线</th><th>职责</th></tr></thead>
+  <tbody>
+    <tr><td><code>NativeMethods</code>（internal）</td><td><code>RealEsrganInference/NativeMethods.cs</code></td>
+        <td>10 个 DllImport + POD 镜像 + UTF-8 解码</td></tr>
+    <tr><td><code>UndistortionInfo / Timing / Options</code></td><td><code>RealEsrganInfo / Timing / Config</code></td>
+        <td>不可变数据对象；Options 只有 4 个字段</td></tr>
+    <tr><td><code>UndistortionException</code></td><td><code>RealEsrganException</code></td>
+        <td>携带原生错误码与错误串</td></tr>
+    <tr><td><code>PinnedBuffer</code></td><td>基线无（新增）</td>
+        <td>POH + <code>cudaHostRegister</code> 的真页锁缓冲，可复用</td></tr>
+    <tr><td><code>Undistorter</code></td><td><code>RealEsrganUpscaler</code></td>
+        <td>句柄生命周期、Mat/byte[]/指针转换、异常映射、计时</td></tr>
+    <tr><td><code>ImageCompare</code></td><td>基线无（测试辅助）</td>
+        <td>逐像素差异/PSNR，供 Sample/SelfTest 使用</td></tr>
+  </tbody>
+</table>
+
+<h3 id="s7-2">7.2 三种入口：Mat / byte[] / PinnedBuffer</h3>
+<pre><span class="c">// 1) 最常用：Mat 进 Mat 出（库内 pinned 暂存，pageable 兼容）</span>
+using var und = new Undistorter(matrixDir, 5120, 4096);
+using var src = Cv2.ImRead(path, ImreadModes.Grayscale);
+using var dst = new Mat(4096, 5120, MatType.CV_8UC1);   <span class="c">// 复用，避免每帧 21MB 分配</span>
+und.Process(src, dst);
+Console.WriteLine(und.LastTiming);   <span class="c">// h2d=0.78 infer=1.17 d2h=0.78 total=4.94 ms</span>
+
+<span class="c">// 2) byte[]：适合与相机 SDK / 网络包对接（每次 pin 数组，有开销）</span>
+byte[] outBytes = und.Process(inBytes);
+
+<span class="c">// 3) 零拷贝：PinnedBuffer 复用，host_flags=1，直接异步 DMA</span>
+using var pinIn  = new PinnedBuffer(5120 * 4096);
+using var pinOut = new PinnedBuffer(5120 * 4096);
+pinIn.CopyFrom(src.Data, pinIn.Length);
+und.ProcessPinned(pinIn, pinOut);
+pinOut.CopyTo(dst.Data, pinOut.Length);
+</pre>
+<p>
+  Mat 入口会检查 <code>CV_8UC1</code>、尺寸、连续性；不连续时自动 <code>Clone</code>（并计一次拷贝）。
+  <code>dst</code> 为 null 时新建 Mat，但高频路径建议复用，否则每帧 21 MB 托管分配会拖慢 GC。
+</p>
+
+<h3 id="s7-3">7.3 关键坑：POH ≠ 页锁内存</h3>
+<div class="badbox">
+  <b>实测踩坑：</b>第一版 <code>PinnedBuffer</code> 用
+  <code>GC.AllocateArray&lt;byte&gt;(n, pinned: true)</code> + <code>GCHandle(Pinned)</code>，
+  以为就是 CUDA 的 pinned memory。结果零拷贝路径实测 <b>5.93 ms</b>，和 pageable 几乎一样。
+  原因：<code>GCHandle(Pinned)</code> 只保证「GC 不移动该对象」，<b>不是</b>操作系统的非分页内存；
+  CUDA 仍按 pageable 处理并内部暂存。
+</div>
+<p>
+  修正：<code>PinnedBuffer</code> 在构造时调用 <code>undist_host_register</code>
+  （即 <code>cudaHostRegister</code>）把这段 POH 内存真正页锁，<code>Dispose</code> 时
+  <code>cudaHostUnregister</code>。同一份代码立刻从 <b>5.93 ms → 2.76 ms</b>（2.15×）。
+  这条经验对任何「C# + CUDA」封装都成立。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="s8">8. 主机内存搬运：pageable vs pinned</h2>
+
+<h3 id="s8-1">8.1 机制差异</h3>
+<div class="two">
+<div class="card">
+  <h4 style="margin-top:0">pageable（可分页）</h4>
+  <ul class="small">
+    <li>普通 <code>malloc/new</code> / 托管数组，操作系统可换出、可移动。</li>
+    <li>CUDA 不能直接 DMA：驱动在内部准备一块<b>页锁中转缓冲（bounce buffer）</b>，
+        先 CPU→中转、再 DMA；D2H 反向再拷一次。</li>
+    <li><code>cudaMemcpy</code> 对 pageable 是同步语义；<code>cudaMemcpyAsync</code> 也可能被驱动
+        降级为同步。</li>
+    <li>额外一次内存拷贝 + 驱动锁，带宽打对折，尾延迟抖动大。</li>
+  </ul>
+</div>
+<div class="card">
+  <h4 style="margin-top:0">pinned（页锁）</h4>
+  <ul class="small">
+    <li><code>cudaHostAlloc</code> 或 <code>cudaHostRegister</code> 分配/注册，物理页常驻、不可换出。</li>
+    <li>GPU 的 DMA 引擎直接读写主机物理地址，<b>无中转拷贝</b>。</li>
+    <li><code>cudaMemcpyAsync</code> 真正异步，可与 kernel/其它流重叠。</li>
+    <li>代价：占用不可换出的物理内存；过量分配会拖慢整机；分配/注册是毫秒级操作，
+        必须复用而不是每帧做。</li>
+  </ul>
+</div>
+</div>
+
+<h3 id="s8-2">8.2 三条路径的实测分解</h3>
+<p>
+  同一张 5120×4096（20 MiB）图，同一 ctx、同一引擎、同一 stream，唯一变量是主机缓冲与暂存策略：
+</p>
+<table>
+  <thead><tr><th>路径</th><th>数据流</th><th class="num">H2D</th><th class="num">kernel</th>
+      <th class="num">D2H</th><th class="num">主机拷贝</th><th class="num">合计</th></tr></thead>
+  <tbody>
+    <tr><td>pageable 直传</td><td>pageable → 驱动中转 → GPU → 驱动中转 → pageable</td>
+        <td class="num">1.913</td><td class="num">1.292</td><td class="num">2.698</td><td class="num">0</td>
+        <td class="num"><b>5.904</b></td></tr>
+    <tr><td>库内 pinned 暂存（Mat 默认）</td><td>pageable → memcpy → pinned → GPU → pinned → memcpy → pageable</td>
+        <td class="num">0.780</td><td class="num">1.172</td><td class="num">0.777</td><td class="num">2.051</td>
+        <td class="num"><b>4.944</b></td></tr>
+    <tr><td>调用方 pinned 零拷贝</td><td>pinned → GPU → pinned</td>
+        <td class="num">0.770</td><td class="num">1.354</td><td class="num">0.768</td><td class="num">0</td>
+        <td class="num"><b>2.892</b></td></tr>
+    <tr><td>仅 kernel（图已在显存）</td><td>—</td><td class="num">0</td><td class="num">1.198</td>
+        <td class="num">0</td><td class="num">0</td><td class="num"><b>1.198</b></td></tr>
+  </tbody>
+</table>
+<p class="small">单位 ms；C++ 验收（40 图 × 5 次 / 8 图对照，RTX 5060 Laptop）。
+  单次代表性运行，kernel 与端到端有约 ±10% 波动，路径排序稳定。</p>
+
+<div class="bar"><span class="lbl">pageable 直传</span>
+  <div class="track"><div class="fill" style="width:100%;background:#c0392b"></div></div>
+  <span class="val">5.904 ms</span></div>
+<div class="bar"><span class="lbl">库内 pinned 暂存</span>
+  <div class="track"><div class="fill" style="width:83.7%;background:#d68910"></div></div>
+  <span class="val">4.944 ms</span></div>
+<div class="bar"><span class="lbl">调用方 pinned 零拷贝</span>
+  <div class="track"><div class="fill" style="width:49.0%;background:#1f6feb"></div></div>
+  <span class="val">2.892 ms</span></div>
+<div class="bar"><span class="lbl">仅 kernel</span>
+  <div class="track"><div class="fill" style="width:20.3%;background:#0f7b6c"></div></div>
+  <span class="val">1.198 ms</span></div>
+
+<h4>三个必须解释的现象</h4>
+<ol>
+  <li><b>pageable 的 D2H（2.698 ms）比 H2D（1.913 ms）更贵。</b>
+      回读时驱动必须等 DMA 完成并把数据从中转缓冲拷回用户页，WDDM 下还要处理分页/驻留；
+      实测 p90 达 5.6 ms，尾延迟明显。</li>
+  <li><b>库内 pinned 暂存只比 pageable 快 1.19×（4.944 vs 5.904）。</b>
+      因为「pageable→pinned」的 2×1 ms 主机 memcpy，成本几乎等于驱动自己做的中转。
+      换句话说：<b>如果数据本来就在普通内存里，换 pinned 只是把中转从驱动搬到了你的代码里</b>。</li>
+  <li><b>真正的收益来自「缓冲常驻页锁」：2.892 ms，是 pageable 的 2.04×。</b>
+      这时每帧只剩 0.77 + 1.35 + 0.77，PCIe 传输占 53%，kernel 占 47%。</li>
+</ol>
+
+<h3 id="s8-3">8.3 工程推荐值与适用边界</h3>
+<table>
+  <thead><tr><th>部署形态</th><th>每帧</th><th>相对 CPU（63.82 ms）</th><th>推荐度</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>GPU 直采 / 前序 GPU 节点（图在显存）</td><td class="num">1.20 ms</td><td class="num">53×</td>
+        <td><span class="badge b-ok">首选</span></td><td>零 PCIe；需重构流水线，让去畸变紧跟采集</td></tr>
+    <tr><td>调用方常驻 pinned 缓冲（零拷贝）</td><td class="num">2.89 ms</td><td class="num">22×</td>
+        <td><span class="badge b-ok">推荐</span></td><td>相机 SDK/采集线程直接写 pinned；每路 2 块复用</td></tr>
+    <tr><td>库内 pinned 暂存（Mat 默认）</td><td class="num">4.94 ms</td><td class="num">12.9×</td>
+        <td><span class="badge b-warn">通用</span></td><td>接口最简，适合既有 Mat 管线，无需改上游</td></tr>
+    <tr><td>pageable 直传</td><td class="num">5.90 ms</td><td class="num">10.8×</td>
+        <td><span class="badge b-bad">不推荐</span></td><td>仅作对照/兼容；尾延迟最差</td></tr>
+  </tbody>
+</table>
+<div class="note">
+  <b>推荐值的含义：</b>本工程推荐「调用方常驻 pinned + 零拷贝」作为单图部署的目标值
+  <b>2.9 ms/图</b>；若上游只能给普通 Mat，则按 <b>4.9 ms/图</b> 计价，不要按 kernel 的 1.2 ms 报指标。
+  pinned 缓冲要在<b>初始化时分配、循环复用</b>；每帧 <code>cudaHostRegister</code> 会把收益吃光。
+</div>
+
+<h4>什么时候不要用 pinned</h4>
+<ul>
+  <li>图像只处理一次、之后马上释放：注册/注销的成本高于收益。</li>
+  <li>多实例/多相机且主机内存紧张：每路 2×21 MB 页锁内存不可换出，累积会拖慢整机。</li>
+  <li>需要与其它进程共享大页/内存池：页锁内存与内存池策略可能冲突，需单独评估。</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s9">9. 实现细节</h2>
+
+<h3 id="s9-1">9.1 紧凑表构建</h3>
+<ol>
+  <li><b>文件校验</b>：12 个 <code>.bin</code> 必须存在且大小 = <code>W·H·4</code>；不符返回 -6/-7，
+      错误串带文件名与实际大小。</li>
+  <li><b>列主序 → 行主序</b>：源文件是 <code>raw[col·H + row]</code>，用 32×32 分块转置，
+      避免整列跨距写导致的缓存抖动。</li>
+  <li><b>流式掩码</b>：不一次性保留 8 张 U/V（672 MB），而是逐张加载、更新 <code>uint8</code> 掩码后释放；
+      峰值主机内存约 350–450 MB，而不是 1.3 GB。</li>
+  <li><b>索引</b>：用 U1/V1 算 <code>v·W+u</code>，四抽头任一越界则置 N；<code>N = 20,971,520</code>，
+      在 int32 范围内（上限留 16 个哑元）。</li>
+  <li><b>权重因子</b>：<code>fu = A2+A4</code>、<code>fv = A3+A4</code>，只保留两张表；
+      实测 valid = 20,620,715，越界 = 350,805（1.6728%），与 V0 的审计值一致。</li>
+</ol>
+<p class="small">
+  本机实测：读 1 GB + 转置/掩码/权重 ≈ 2.08 s。属于一次性启动成本；若要压到 &lt;500 ms，
+  可把表做成离线产物（直接发布 idx0/fu/fv 三张 .bin），运行时只做 H2D。
+</p>
+
+<h3 id="s9-2">9.2 引擎构建与缓存</h3>
+<ul>
+  <li>强类型网络（<code>kSTRONGLY_TYPED</code>），workspace 256 MB，无 tactic 搜索需求（全是逐元素/gather）。</li>
+  <li>冷构建 <b>3.6 s</b>（首次），序列化后仅 <b>37.1 KB</b>；再次启动反序列化 <b>~150 ms</b>。</li>
+  <li>缓存文件 = 32 字节头 + 引擎字节：
+      <code>magic "UDV1" / version / W / H / variant / TRT 版本 / table_bytes</code>。
+      头不匹配（尺寸、表结构、TRT 版本）自动回退重建，避免「换了矩阵却加载旧引擎」。</li>
+  <li>缓存是<b>可选能力</b>，默认关闭；图像数据从不落盘，符合「数据都放内存」的要求。</li>
+</ul>
+
+<h3 id="s9-3">9.3 推理路径与计时点</h3>
+<pre><span class="k">total</span> = t0 ─────────────────────────────────────────────── t5
+  ├─ 主机行拷贝（仅 staging 路径）        t0..t1
+  ├─ <span class="k">H2D</span>（async + streamSync）             t1..t2
+  ├─ <span class="k">enqueueV3 + streamSync</span>（kernel）    t2..t3
+  ├─ <span class="k">D2H</span>（async + streamSync）             t3..t4
+  └─ 主机行拷贝回 dst（仅 staging 路径）  t4..t5
+</pre>
+<ul>
+  <li>串行口径：每段结束都 <code>cudaStreamSynchronize</code>，所以 h2d/infer/d2h 可加，
+      与 <code>total</code> 的差额就是主机拷贝时间，便于定位瓶颈。</li>
+  <li>pageable 模式用同步 <code>cudaMemcpy/cudaMemcpy2D</code>；连续行时走 <code>cudaMemcpy</code> 快路径
+      （<code>cudaMemcpy2D</code> 在 D2H 上会慢 1.8×，这是实现期修正的一个坑）。</li>
+  <li>行跨距不等于宽度时，按行 <code>memcpy</code> 到连续暂存，保证引擎输入始终连续。</li>
+</ul>
+
+<h3 id="s9-4">9.4 构建系统</h3>
+<table>
+  <thead><tr><th>项</th><th>值</th></tr></thead>
+  <tbody>
+    <tr><td>编译器</td><td>MSVC 19.44（VS 2022 Community），<code>/O2 /MD /utf-8</code></td></tr>
+    <tr><td>生成器</td><td>CMake 4.2 + Ninja（与 INFER/deploy/trt 一致）</td></tr>
+    <tr><td>依赖</td><td>TensorRT 10.14.1.48（<code>nvinfer_10.lib</code>）、CUDA 12.8（<code>cudart</code>）</td></tr>
+    <tr><td>测试依赖</td><td>OpenCV 4.12（只用于 BMP 读写与比对）</td></tr>
+    <tr><td>导出</td><td><code>extern "C"</code> + <code>WINDOWS_EXPORT_ALL_SYMBOLS</code>；
+        产物 <code>undist_api.dll</code>（约 86 KB，仅 10 个 C 导出）</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s10">10. 测试与验收设计</h2>
+
+<h3>10.1 「与 CPU 结果一致」的可执行定义</h3>
+<p>
+  去畸变在 GPU 上必然存在 FMA 融合顺序差异，追求逐位相等既不现实也无意义。本工程把「一致」
+  定义为<b>四条硬阈值 + 一条确定性</b>，并在 40 张全量图上逐位置审计：
+</p>
+<table>
+  <thead><tr><th>编号</th><th>判据</th><th>阈值</th><th>理由</th></tr></thead>
+  <tbody>
+    <tr><td>A1</td><td>最大绝对差</td><td>≤ 1 LSB</td><td>8 bit 输出的最小可分辨单位；不允许结构性偏差</td></tr>
+    <tr><td>A2</td><td>差异像素比例</td><td>≤ 1×10⁻⁵</td><td>只允许舍入边界上的孤立像素</td></tr>
+    <tr><td>A3</td><td>差 ≥ 2 的像素数</td><td>= 0</td><td>排除任何「成片偏色/错位」</td></tr>
+    <tr><td>A4</td><td>PSNR（最差图）</td><td>≥ 60 dB</td><td>若全图都差 1 LSB，PSNR 约 48 dB；
+        实测 &gt;99 dB 说明差异极稀疏（&lt;10⁻⁵）</td></tr>
+    <tr><td>A5</td><td>重复推理</td><td>同图 N 次逐位相同</td><td>排除非确定性（TRT 同 context 应确定）</td></tr>
+  </tbody>
+</table>
+<div class="note">
+  <b>为什么不用「逐位相等」：</b>CPU 版本自身在启用 FMA 与未启用 FMA 时就有 5.44×10⁻⁶ 的差异
+  （见 UNDIST-002 §3.2）。把 GPU 的 FMA 差异压到 0 等价于要求 GPU 禁用 FMA，
+  既不可控也没有工程收益。
+</div>
+
+<h3>10.2 测试矩阵</h3>
+<table>
+  <thead><tr><th>层</th><th>用例</th><th>规模</th><th>产物</th></tr></thead>
+  <tbody>
+    <tr><td>C++ 验收</td><td>40 图逐像素 vs CPU output0；三路计时；9 项 ABI 契约</td>
+        <td>40 图 × 5 次</td><td><code>acceptance_report.json</code> + CSV + 40 BMP</td></tr>
+    <tr><td>C# 自测</td><td>16 项：信息契约、Mat/byte[]/Pinned 一致性、三路计时、确定性、生命周期、错误路径</td>
+        <td>3 图 × 3 次</td><td><code>csharp_selftest.json</code></td></tr>
+    <tr><td>C# 样例</td><td>单图调用、与 CPU 比对、连续 10 次稳定值</td><td>1 图</td>
+        <td><code>document/data/preview/sample_pinned.bmp</code></td></tr>
+    <tr><td>数据</td><td><code>demo/raw</code> 40 张（PIC/STEP，5120×4096 灰度 BMP）</td><td>各 20 MiB</td>
+        <td>基准为 <code>demo/output0</code></td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s11">11. 风险、限制与后续优化</h2>
+<table>
+  <thead><tr><th>项</th><th>现状</th><th>影响</th><th>建议</th></tr></thead>
+  <tbody>
+    <tr><td>初始化 2.1 s</td><td>每次进程启动都要读 1 GB 矩阵</td><td>启动慢、抢占 CPU</td>
+        <td>P1：离线发布 idx0/fu/fv 三张表，启动只做 H2D（目标 &lt;300 ms）</td></tr>
+    <tr><td>冷启动引擎 3.6 s</td><td>无缓存时现场构建</td><td>首次部署慢</td><td>
+        发布时随包带 <code>.engine</code>；注意引擎绑定 GPU 架构 + TRT 版本，跨机型需重建</td></tr>
+    <tr><td>单通道</td><td>仅 CV_8UC1</td><td>彩色相机需外部拆通道</td>
+        <td>P2：3 通道时把网络输入改成 3 通道或循环 3 次（表可复用）</td></tr>
+    <tr><td>单图无 batch</td><td>每帧一次 enqueue</td><td>表带宽只服务 1 图</td>
+        <td>P2：自定义 plugin/CUDA kernel 做 batch，让 252 MB 表读一次服务多图（UNDIST-002 预估 B=8 时 0.25 ms/图）</td></tr>
+    <tr><td>每实例 280 MiB</td><td>表独占</td><td>多相机时显存吃紧</td>
+        <td>多实例共享同一张表的 device 指针（需改引擎层为 table-owner + context-pool）</td></tr>
+    <tr><td>TRT 完整运行时</td><td>链接 <code>nvinfer_10</code>（含 builder）</td><td>发布包大</td>
+        <td>发布形态可改链接 <code>nvinfer_lean_10</code>（43 MB），引擎离线构建</td></tr>
+    <tr><td>页锁内存</td><td>调用方自管</td><td>滥用会拖慢整机</td>
+        <td>建议每路固定 2 块、进程级上限（如 ≤8 路）</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s12">12. 附录</h2>
+
+<h3>12.1 复现命令</h3>
+<pre>cd Algorithms\undistortionV1
+
+<span class="c"># 1) 构建 native（需 VS2022 / CUDA 12.8 / TensorRT 10.14）</span>
+powershell -ExecutionPolicy Bypass -File scripts\build_native.ps1
+
+<span class="c"># 2) C++ 全量验收（40 图，输出到 demo\output-trt）</span>
+powershell -ExecutionPolicy Bypass -File scripts\run_acceptance.ps1
+
+<span class="c"># 3) C# 封装自测</span>
+powershell -ExecutionPolicy Bypass -File scripts\run_selftest.ps1
+</pre>
+
+<h3>12.2 API 速查</h3>
+<table>
+  <thead><tr><th>场景</th><th>调用</th></tr></thead>
+  <tbody>
+    <tr><td>初始化</td><td><code>new Undistorter(matrixDir, w, h, options?, engineCache?)</code></td></tr>
+    <tr><td>Mat 推理</td><td><code>und.Process(srcMat, dstMat)</code></td></tr>
+    <tr><td>零拷贝</td><td><code>und.ProcessPinned(pinIn, pinOut)</code></td></tr>
+    <tr><td>纯 kernel 基准</td><td><code>und.BenchKernel(srcMat, 100)</code></td></tr>
+    <tr><td>切搬运模式</td><td><code>und.SetMemoryMode(HostMemoryMode.Pageable)</code></td></tr>
+    <tr><td>资源</td><td><code>und.Info</code> / <code>und.LastTiming</code> / <code>und.Dispose()</code></td></tr>
+  </tbody>
+</table>
+
+<h3>12.3 术语</h3>
+<table>
+  <thead><tr><th>术语</th><th>含义</th></tr></thead>
+  <tbody>
+    <tr><td>变体 F</td><td>idx0(int32) + fu(fp32) + fv(fp32)，12 B/px，权重运行时重建</td></tr>
+    <tr><td>哑元（dummy）</td><td>平坦输入尾部 N..N+W+3 的 0，用来吸收越界索引</td></tr>
+    <tr><td>staging</td><td>库内 pinned 暂存缓冲，用于把 pageable 数据转成可异步 DMA 的页锁数据</td></tr>
+    <tr><td>零拷贝</td><td>调用方直接提供页锁缓冲，库内不做主机侧拷贝</td></tr>
+    <tr><td>POH</td><td>.NET Pinned Object Heap，只保证地址稳定，不等于 CUDA 页锁内存</td></tr>
+  </tbody>
+</table>
+
+<hr>
+<p class="small">
+  配套测试与验收数据见
+  <code>UNDIST-102-去畸变UndistortionV1_TRT推理_测试与验收报告_20261026.html</code>；
+  算法原方案与 TRT 原型见
+  <code>undistortion_standaloneV0/document/UNDIST-001</code>、<code>UNDIST-002</code>。
+</p>
+
+</div>
+</body>
+</html>

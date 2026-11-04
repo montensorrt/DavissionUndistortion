@@ -1,0 +1,185 @@
+{
+  "meta": {
+    "suite": "undistortionV1/csharp",
+    "timestamp": "2026-10-26 14:09:19",
+    "images": 3,
+    "width": 5120,
+    "height": 4096,
+    "iters": 3,
+    "matrix_dir": "E:\\algrithm\\project\\botong\\davissionNew\\Algorithms\\undistortion_standaloneV0\\botong25",
+    "raw_dir": "E:\\algrithm\\project\\botong\\davissionNew\\Algorithms\\undistortion_standaloneV0\\demo\\raw",
+    "cpu_dir": "E:\\algrithm\\project\\botong\\davissionNew\\Algorithms\\undistortion_standaloneV0\\demo\\output0",
+    "out_dir": "E:\\algrithm\\project\\botong\\davissionNew\\Algorithms\\undistortionV1\\csharp\\SelfTest\\output",
+    "engine_cache": "E:\\algrithm\\project\\botong\\davissionNew\\Algorithms\\undistortionV1\\trt\\build\\cache\\undist_F_5120x4096.engine"
+  },
+  "env": {
+    "gpu": "NVIDIA GeForce RTX 5060 Laptop GPU",
+    "sm_count": 26,
+    "tensorrt": "10.14.1",
+    "table_bytes": 251658240,
+    "device_bytes": 293601280,
+    "table_bytes_per_pixel": 12,
+    "init_table_ms": 2279.692,
+    "init_engine_ms": 153.585,
+    "init_total_ms": 2458.637
+  },
+  "acceptance": {
+    "passed": true,
+    "criteria": {
+      "max_abs_diff": 1,
+      "diff_ratio": 1E-05,
+      "count_ge2": 0,
+      "psnr_db": 60
+    },
+    "totals": {
+      "diff_pixels": 383,
+      "pixels": 62914560,
+      "diff_ratio": 6.088E-06,
+      "max_abs_diff": 1,
+      "count_ge2": 0,
+      "psnr_min_db": 99.763
+    },
+    "images": [
+      {
+        "name": "PIC_1_1.bmp",
+        "diff_pixels": 128,
+        "max_abs_diff": 1,
+        "count_ge2": 0,
+        "mae": 6.104E-06,
+        "psnr_db": 100.275
+      },
+      {
+        "name": "PIC_1_10.bmp",
+        "diff_pixels": 144,
+        "max_abs_diff": 1,
+        "count_ge2": 0,
+        "mae": 6.866E-06,
+        "psnr_db": 99.763
+      },
+      {
+        "name": "PIC_1_2.bmp",
+        "diff_pixels": 111,
+        "max_abs_diff": 1,
+        "count_ge2": 0,
+        "mae": 5.293E-06,
+        "psnr_db": 100.894
+      }
+    ]
+  },
+  "timing": {
+    "pinned_staged": {
+      "n": 9,
+      "h2d_ms": 0.7718,
+      "infer_ms": 1.2239,
+      "d2h_ms": 0.7775,
+      "mean_ms": 5.1067,
+      "p50_ms": 5.0853,
+      "p90_ms": 5.463
+    },
+    "pageable": {
+      "n": 9,
+      "h2d_ms": 1.8858,
+      "infer_ms": 1.2064,
+      "d2h_ms": 3.0354,
+      "mean_ms": 6.1276,
+      "p50_ms": 4.7987,
+      "p90_ms": 9.5978
+    },
+    "pinned_zero_copy": {
+      "n": 9,
+      "h2d_ms": 0.7757,
+      "infer_ms": 1.1423,
+      "d2h_ms": 0.8455,
+      "mean_ms": 2.7635,
+      "p50_ms": 2.7122,
+      "p90_ms": 3.0022
+    },
+    "kernel_only": {
+      "iters": 100,
+      "infer_ms": 1.0634,
+      "table_gbs": 236.656
+    }
+  },
+  "api_tests": [
+    {
+      "name": "info_dims",
+      "passed": true,
+      "detail": "5120x4096"
+    },
+    {
+      "name": "info_table_12bpp",
+      "passed": true,
+      "detail": "12.0 B/px"
+    },
+    {
+      "name": "info_table_bytes",
+      "passed": true,
+      "detail": "table=251658240, expect=251658240"
+    },
+    {
+      "name": "info_device_bytes",
+      "passed": true,
+      "detail": "device=293601280, expect=293601280"
+    },
+    {
+      "name": "info_gpu_name",
+      "passed": true,
+      "detail": "NVIDIA GeForce RTX 5060 Laptop GPU"
+    },
+    {
+      "name": "info_trt_version",
+      "passed": true,
+      "detail": "10.14.1"
+    },
+    {
+      "name": "entry_bytes_equal_mat",
+      "passed": true,
+      "detail": "byte[] 与 Mat 入口逐位一致"
+    },
+    {
+      "name": "entry_pinned_equal_mat",
+      "passed": true,
+      "detail": "PinnedBuffer 零拷贝与 Mat 入口逐位一致"
+    },
+    {
+      "name": "mode_pageable_restore",
+      "passed": true,
+      "detail": "Pinned"
+    },
+    {
+      "name": "deterministic_5_runs",
+      "passed": true,
+      "detail": "连续 5 次输出的 SHA256 一致"
+    },
+    {
+      "name": "dispose_then_use_throws",
+      "passed": true,
+      "detail": "Dispose 后调用抛 ObjectDisposedException"
+    },
+    {
+      "name": "dispose_idempotent",
+      "passed": true,
+      "detail": "重复 Dispose 安全"
+    },
+    {
+      "name": "error_matrix_missing",
+      "passed": true,
+      "detail": "空目录 -> MatrixMissing(-6)"
+    },
+    {
+      "name": "error_wrong_size",
+      "passed": true,
+      "detail": "尺寸不符 -> ArgumentException"
+    },
+    {
+      "name": "error_null_src",
+      "passed": true,
+      "detail": "null Mat -> ArgumentNullException"
+    },
+    {
+      "name": "error_channels",
+      "passed": true,
+      "detail": "CV_8UC3 -> ArgumentException"
+    }
+  ]
+}

@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第三方库安装指南 —— 显卡驱动 / CUDA / TensorRT / cuDNN</title>
+<style>
+  :root{
+    --ink:#16202b; --ink2:#43535f; --line:#dde4ec; --bg:#f5f8fb; --card:#fff;
+    --accent:#0f7b6c; --accent2:#0a5c50; --blue:#1f6feb; --blue2:#0b4ea2;
+    --ok:#177f4b; --warn:#b45309; --bad:#b91c1c;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+       line-height:1.72;font-size:15px}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 28px 96px}
+  header.hero{background:linear-gradient(135deg,#062f28 0%,#0d5145 52%,#0f7b6c 100%);
+       color:#fff;padding:50px 28px 42px;margin-bottom:32px}
+  header.hero .inner{max-width:1120px;margin:0 auto}
+  header.hero h1{margin:0 0 10px;font-size:30px;letter-spacing:.4px;font-weight:700}
+  header.hero .sub{opacity:.93;font-size:15.5px;max-width:920px}
+  header.hero .tags{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+  header.hero .tag{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+       padding:4px 11px;border-radius:999px;font-size:12.5px}
+  h2{margin:50px 0 14px;font-size:23px;padding-bottom:9px;border-bottom:2px solid var(--accent);
+     color:var(--accent2)}
+  h3{margin:30px 0 10px;font-size:17.5px}
+  h4{margin:22px 0 8px;font-size:15px;color:var(--ink2)}
+  code{font-family:var(--mono);background:#eaf1f6;padding:1.5px 5px;border-radius:4px;
+       font-size:13px;color:#0a5c50}
+  pre{background:#0d1a20;color:#d8e8e4;padding:15px 18px;border-radius:8px;overflow-x:auto;
+      font-family:var(--mono);font-size:12.7px;line-height:1.62;border:1px solid #1b3038}
+  pre .c{color:#78968f}
+  pre .k{color:#6fc9b8}
+  pre .s{color:#a5d6a7}
+  pre .r{color:#f08a8a}
+  table{border-collapse:collapse;width:100%;margin:16px 0;background:var(--card);
+        border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:13.6px}
+  th,td{padding:8px 11px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#e9f2f0;font-weight:600;color:#123f39;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(even){background:#fbfdfc}
+  td.num,th.num{text-align:right;font-family:var(--mono);font-size:12.9px;white-space:nowrap}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+        padding:18px 22px;margin:18px 0;box-shadow:0 1px 2px rgba(16,32,56,.04)}
+  .kv{display:grid;grid-template-columns:190px 1fr;gap:6px 16px;font-size:14px}
+  .kv dt{color:var(--ink2);font-weight:600}
+  .kv dd{margin:0}
+  .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600}
+  .b-ok{background:#e0f4ee;color:var(--ok);border:1px solid #b4e0d4}
+  .b-warn{background:#fdf1e0;color:var(--warn);border:1px solid #f3d3a3}
+  .b-bad{background:#fdecec;color:var(--bad);border:1px solid #f5c1c1}
+  .b-info{background:#e8f0fd;color:var(--blue2);border:1px solid #c2d9fb}
+  .note{border-left:4px solid var(--accent);background:#eef8f5;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .warnbox{border-left:4px solid var(--warn);background:#fff8ee;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .badbox{border-left:4px solid var(--bad);background:#fff3f3;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .bluebox{border-left:4px solid var(--blue);background:#f0f6ff;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:10px;
+       padding:16px 26px;margin:24px 0}
+  .toc ol{margin:6px 0 0;padding-left:20px}
+  .toc a{color:var(--accent2);text-decoration:none}
+  .toc > ol > li{margin:4px 0;font-weight:600}
+  .small{font-size:12.8px;color:var(--ink2)}
+  hr{border:none;border-top:1px dashed var(--line);margin:32px 0}
+  .flow{background:#0d1a20;color:#d8e8e4;border-radius:8px;padding:18px 20px;overflow-x:auto;
+        font-family:var(--mono);font-size:12.5px;line-height:1.75}
+  .flow .b{color:#6fc9b8}
+  .flow .n{color:#f0b862}
+  .flow .g{color:#8fb8b0}
+  .flow .r{color:#f08a8a}
+  .step{display:inline-block;background:var(--accent2);color:#fff;border-radius:999px;
+        padding:2px 12px;font-size:12.5px;font-weight:600;margin-right:8px;vertical-align:2px}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="inner">
+    <h1>第三方库安装指南：显卡驱动 / CUDA / TensorRT / cuDNN</h1>
+    <div class="sub">
+      按<b>本机实测环境</b>逐步复刻：默认路径安装 → 配置 Windows 环境变量 → 三条命令验证。
+      顺序错了或环境变量没配，后面所有程序都会报 <code style="background:rgba(255,255,255,.16);color:#fff">DllNotFoundException</code>。
+      本文给出每一步的<b>安装动作、默认路径、验证方式、注意事项</b>，以及一个 10 条的排错表。
+    </div>
+    <div class="tags">
+      <span class="tag">驱动 581.57 · 重启 · nvidia-smi</span>
+      <span class="tag">CUDA 12.8.61 · nvcc -V</span>
+      <span class="tag">TensorRT 10.14.1.48 · trtexec --version</span>
+      <span class="tag">cuDNN 9.17 · 拷入 CUDA 目录</span>
+      <span class="tag">Win11 26200 · 约 9.7 GB 磁盘</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="toc">
+  <b>目录</b>
+  <ol>
+    <li><a href="#s1">本机基准环境（照着这个装）</a></li>
+    <li><a href="#s2">安装顺序总览</a></li>
+    <li><a href="#s3">第 1 步：显卡驱动（装完必须重启）</a></li>
+    <li><a href="#s4">第 2 步：CUDA Toolkit 12.8</a></li>
+    <li><a href="#s5">第 3 步：cuDNN 9.x（拷进 CUDA 目录）</a></li>
+    <li><a href="#s6">第 4 步：TensorRT 10.14</a></li>
+    <li><a href="#s7">环境变量总表（本机实测值）</a></li>
+    <li><a href="#s8">一键验证与期望输出</a></li>
+    <li><a href="#s9">常见问题速查（10 条）</a></li>
+    <li><a href="#s10">与本项目的关系：哪些真必需</a></li>
+    <li><a href="#s11">附录：本机实测原始输出</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s1">1. 本机基准环境（照着这个装）</h2>
+
+<div class="card">
+  <div class="kv">
+    <dt>操作系统</dt><dd>Microsoft Windows 11 家庭版 中文版，<code>10.0.26200</code>（64 位）</dd>
+    <dt>显卡</dt>
+    <dd><b>NVIDIA GeForce RTX 5060 Laptop GPU</b>（8 GB 显存，笔记本独显；另有 Intel 核显，双显卡机器）</dd>
+    <dt>显卡驱动</dt>
+    <dd><b>581.57</b>（<code>nvidia-smi</code> 显示 <code>Driver Version: 581.57</code>；
+        设备版本号 <code>32.0.15.8157</code>，安装日期 2025-10-09）</dd>
+    <dt>CUDA Toolkit</dt>
+    <dd><b>12.8</b>，<code>nvcc</code> 报 <code>release 12.8, V12.8.61</code></dd>
+    <dt>TensorRT</dt>
+    <dd><b>10.14.1.48</b>，<code>trtexec</code> 横幅 <code>[TensorRT v101401]</code></dd>
+    <dt>cuDNN</dt>
+    <dd><b>9.17</b>（<code>cudnn64_9.dll</code> 等 8 个 DLL），已拷入 CUDA 12.8 目录</dd>
+    <dt>VC++ 运行时</dt>
+    <dd><b>14.50.35719</b>（<code>MSVCP140.dll</code> / <code>VCRUNTIME140.dll</code> / <code>VCRUNTIME140_1.dll</code>）</dd>
+    <dt>默认安装根</dt>
+    <dd><code>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8</code><br>
+        <code>C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT\v10.14.1.48</code><br>
+        <code>C:\Program Files\NVIDIA\CUDNN\v9.17</code>（cuDNN 解压包，装完可删）</dd>
+  </div>
+</div>
+
+<div class="note">
+  <b>“参考本机”的含义：</b>所有路径、版本、环境变量条目都是本机实测值。
+  换机器时只要保持<b>同样的默认路径结构</b>与<b>同样的环境变量名</b>，本文步骤可原样复用；
+  版本可以升级，但 <b>CUDA ↔ TensorRT ↔ cuDNN 三者版本必须互相匹配</b>（见 §9 第 6 条）。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s2">2. 安装顺序总览</h2>
+
+<div class="flow">
+<span class="n">① 显卡驱动 581.57</span>          <span class="g">// 默认路径安装 → <b>必须重启电脑</b></span>
+        │
+        ▼  <span class="g">cmd: `nvidia-smi`  → 看到 Driver Version / 显卡名</span>
+<span class="n">② CUDA Toolkit 12.8</span>         <span class="g">// 默认路径，装时不勾 Display Driver</span>
+        │                        <span class="g">→ 自动建 CUDA_PATH / CUDA_PATH_V12_8 + PATH</span>
+        ▼  <span class="g">新开 cmd: `nvcc -V` → release 12.8</span>
+<span class="n">③ cuDNN 9.x（zip）</span>          <span class="g">// 解压后把 dll/头/lib 拷进 CUDA 对应目录</span>
+        │                        <span class="g">→ bin\*.dll / include\*.h / lib\x64\*.lib</span>
+        ▼  <span class="g">文件存在性检查（cuDNN 无 CLI）</span>
+<span class="n">④ TensorRT 10.14.1.48（zip）</span>  <span class="g">// 解压到默认目录 → PATH 加 bin</span>
+        │
+        ▼  <span class="g">新开 cmd: `trtexec --version` → [TensorRT v101401]</span>
+<span class="n">⑤ 收尾</span>                       <span class="g">// 装 VC++ 2015-2022 x64（多数机器已有）→ 跑本项目 run_test.ps1</span>
+</div>
+
+<div class="warnbox">
+  <b>三条铁律：</b>
+  ① <b>驱动装完必须重启</b>，否则 <code>nvidia-smi</code> 可能报错或仍显示旧版本；<br>
+  ② <b>装完 CUDA / TRT 后必须新开一个 cmd / PowerShell</b> —— 已经开着的窗口读不到新的 <code>PATH</code>；<br>
+  ③ 装 CUDA 时<b>不要勾 Display Driver</b>，否则会把刚装好的 581.57 降级成 CUDA 自带的旧驱动。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s3">3. <span class="step">第 1 步</span>显卡驱动（装完必须重启）</h2>
+
+<h3>3.1 下载</h3>
+
+<table>
+  <thead><tr><th>项</th><th>选什么</th><th>本机对应</th></tr></thead>
+  <tbody>
+    <tr><td>来源</td><td>NVIDIA 官网驱动下载页（<code>nvidia.cn/drivers</code> 或 <code>nvidia.com/Download</code>）</td><td>—</td></tr>
+    <tr><td>产品类型</td><td><b>GeForce</b></td><td>GeForce</td></tr>
+    <tr><td>产品系列</td><td><b>GeForce RTX 50 Series (Notebooks)</b>（笔记本）</td><td>RTX 5060 Laptop</td></tr>
+    <tr><td>操作系统</td><td>Windows 11 64-bit</td><td>Win11 26200</td></tr>
+    <tr><td>下载类型</td><td><b>Game Ready Driver (GRD)</b> 或 <b>Studio Driver (SD)</b> 均可</td><td>本机 581.57</td></tr>
+  </tbody>
+</table>
+
+<h3>3.2 安装（默认路径）</h3>
+
+<ol>
+  <li>双击安装包 → 解压目录保持默认（<code>C:\NVIDIA\DisplayDriver\…</code>）→ 继续。</li>
+  <li>安装选项选 <b>“NVIDIA 图形驱动程序”</b>；
+      如果出现“精简 / 自定义”，建议<b>自定义 → 只勾图形驱动程序</b>（不需要 GeForce Experience、不需要 PhysX 旧版）。</li>
+  <li>安装到默认路径 <code>C:\Program Files\NVIDIA Corporation</code>，<b>不要改</b>（有程序按默认路径找驱动组件）。</li>
+  <li>进度到 100% 后选<b>“立即重启”</b>。<b>这一步不能跳过。</b></li>
+</ol>
+
+<h3>3.3 重启后验证</h3>
+
+<pre><span class="c"># 打开 cmd（Win+R → cmd），输入：</span>
+nvidia-smi</pre>
+
+<p>本机实测输出（关键几行）：</p>
+
+<pre>+-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 581.57                 Driver Version: 581.57         CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+|   0  NVIDIA GeForce RTX 5060 ...  WDDM  |   00000000:02:00.0  On |                  N/A |
+| N/A   53C    P4             15W /   74W |    2065MiB /   8151MiB |      5%      Default |</pre>
+
+<table>
+  <thead><tr><th>看到什么</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Driver Version: 581.57</code></td><td>驱动装对了（与安装包版本一致）</td></tr>
+    <tr><td>显卡名字 + <code>8151MiB</code></td><td>独显被识别；<b>笔记本双显卡下这里只列 NVIDIA 独显</b></td></tr>
+    <tr><td><code>CUDA Version: 13.0</code></td><td><span class="badge b-warn">别误会</span>
+        这是<b>驱动能支持的最高 CUDA API 版本</b>，<b>不是</b>你装的 Toolkit 版本。
+        本机 Toolkit 是 12.8（由 <code>nvcc -V</code> 确认），完全正常。</td></tr>
+  </tbody>
+</table>
+
+<div class="badbox">
+  <b>驱动步骤的坑：</b><br>
+  ① <b>没重启就验证</b> → 可能仍显示旧驱动版本，或 <code>nvidia-smi</code> 报
+  “NVIDIA-SMI has failed because it couldn't communicate with the NVIDIA driver”；<br>
+  ② <b>装成台式机版驱动</b> → 笔记本会装不上或掉驱动；一定要选 <code>Notebooks</code> 系列；<br>
+  ③ Windows Update 可能后台换成别的驱动版本 → 装完记下版本号，后续排查先对版本；<br>
+  ④ <b>CUDA 安装包里自带驱动</b>，装 CUDA 时若勾了 Display Driver 会降级 → 见 §4 注意事项。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s4">4. <span class="step">第 2 步</span>CUDA Toolkit 12.8</h2>
+
+<h3>4.1 下载</h3>
+
+<p>
+  <code>developer.nvidia.com/cuda-downloads</code>（或 <code>cuda-12-8-0-download-archive</code>）
+  → <b>Windows</b> → <b>x86_64</b> → <b>exe (local)</b>，下载完整安装包（约 3~4 GB）。
+</p>
+
+<h3>4.2 安装（默认路径）</h3>
+
+<ol>
+  <li>双击 exe，先让它解压到默认临时目录（<code>C:\Users\&lt;你&gt;\AppData\Local\Temp\...</code>），完成后开始安装向导。</li>
+  <li>安装位置保持默认：<code>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8</code>。</li>
+  <li>组件勾选：
+    <ul>
+      <li><span class="badge b-ok">必装</span> CUDA Runtime、CUDA Development tools（含 <code>nvcc</code>、头文件、库）</li>
+      <li><span class="badge b-info">建议</span> Visual Studio Integration（若机器上装了 VS2022）</li>
+      <li><span class="badge b-bad">取消</span> <b>Display Driver</b>（驱动已单独装 581.57，避免被降级）</li>
+      <li><span class="badge b-info">可选</span> NSight 系列（调试用，不影响运行）</li>
+    </ul>
+  </li>
+  <li>完成后<b>不需要重启</b>，但要<b>新开一个 cmd / PowerShell</b> 让环境变量生效。</li>
+</ol>
+
+<h3>4.3 环境变量（安装器一般已自动建好）</h3>
+
+<p>本机实测自动生成了两条系统变量：</p>
+
+<table>
+  <thead><tr><th>变量</th><th>值</th><th>作用</th></tr></thead>
+  <tbody>
+    <tr><td><code>CUDA_PATH</code></td><td><code>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8</code></td>
+        <td>“当前生效的 CUDA 版本”，很多构建脚本靠它定位</td></tr>
+    <tr><td><code>CUDA_PATH_V12_8</code></td><td>同上</td><td>多版本共存时按版本号区分</td></tr>
+  </tbody>
+</table>
+
+<p>并在 <code>PATH</code> 里追加了三条（顺序如此）：</p>
+
+<pre>%CUDA_PATH%\bin
+%CUDA_PATH%\libnvvp
+%CUDA_PATH%\lib</pre>
+
+<div class="note">
+  <b>手动检查/补录方法：</b><kbd>Win+R</kbd> → <code>sysdm.cpl</code> → 高级 → 环境变量 →
+  在<b>系统变量</b>里改（不是用户变量，否则服务/其他账号看不到）→ 编辑 <code>Path</code> → 新建上述三条。
+  改完<b>必须新开 cmd</b>。
+</div>
+
+<h3>4.4 验证</h3>
+
+<pre><span class="c"># 必须新开一个 cmd！</span>
+nvcc -V</pre>
+
+<p>本机实测输出：</p>
+
+<pre>nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2025 NVIDIA Corporation
+Built on Wed_Jan_15_19:38:46_Pacific_Standard_Time_2025
+Cuda compilation tools, release 12.8, V12.8.61
+Build cuda_12.8.r12.8/compiler.35404655_0</pre>
+
+<table>
+  <thead><tr><th>看到什么</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>release 12.8, V12.8.61</code></td><td>CUDA Toolkit 装对了（<b>这是 Toolkit 的准，不是驱动的</b>）</td></tr>
+    <tr><td><code>where nvcc</code> 输出 <code>…\CUDA\v12.8\bin\nvcc.exe</code></td>
+        <td>PATH 生效，且解析到期望的那个版本</td></tr>
+  </tbody>
+</table>
+
+<div class="badbox">
+  <b>CUDA 步骤的坑：</b><br>
+  ① <code>nvcc 不是内部或外部命令</code> → 90% 是<b>没新开 cmd</b>，其次才是 PATH 没加；<br>
+  ② 装的是 <b>Runtime</b> 而不是 <b>Toolkit</b> → 只有 <code>cudart</code> 没有 <code>nvcc</code>；<br>
+  ③ 机器上有多版本 CUDA → <code>nvcc -V</code> 取 PATH 里<b>第一个</b>，用 <code>where nvcc</code> 确认真实路径；
+      <code>CUDA_PATH</code> 决定构建脚本用哪个；<br>
+  ④ 安装路径带中文或空格 → 部分 CMake/脚本会炸；保持默认路径最稳。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s5">5. <span class="step">第 3 步</span>cuDNN 9.x（拷进 CUDA 目录）</h2>
+
+<div class="warnbox">
+  <b>先说清楚：本项目（Undistortion）不需要 cuDNN。</b>
+  本项目的 TRT 网络只有 Gather / ElementWise / Cast / Constant / Concat / CLIP / FLOOR，
+  没有卷积、没有 RNN，cuDNN 一次都不会被加载（已隔离实测，见 UNDIST-106 §3.2.1）。
+  这一节是为了<b>通用深度学习环境</b>（将来接卷积/RNN 模型、或用其它框架）而写；
+  只跑本项目可以跳过，但很多 NVIDIA 示例/框架会默认去找 cuDNN。
+</div>
+
+<h3>5.1 下载</h3>
+
+<p>
+  <code>developer.nvidia.com/cudnn</code> → 登录后选
+  <b>Download cuDNN v9.x for CUDA 12.x</b> → <b>Windows x86_64 (zip)</b>。
+  本机用的是 <b>9.17</b>（包内按 <code>12.9</code> / <code>13.1</code> 分目录，属 CUDA 12.x 线，12.8 可用）。
+</p>
+
+<h3>5.2 解压包结构（本机实测）</h3>
+
+<pre>C:\Program Files\NVIDIA\CUDNN\v9.17\
+├── bin\
+│   ├── 12.9\        <span class="c">// 8 个 DLL（cudnn64_9.dll、cudnn_adv64_9.dll …）</span>
+│   └── 13.1\
+├── include\
+│   ├── 12.9\        <span class="c">// 7 个头文件（cudnn.h、cudnn_ops.h、cudnn_version.h …）</span>
+│   └── 13.1\
+├── lib\
+│   ├── 12.9\x64\    <span class="c">// 16 个 .lib（带版本号 + 不带版本号的别名）</span>
+│   └── 13.1\
+├── cudnn_samples\
+└── LICENSE</pre>
+
+<div class="note">
+  <b>新版 cuDNN（9.1x）为什么有 <code>12.9</code> / <code>13.1</code> 子目录？</b>
+  一个压缩包里同时带了面向 CUDA 12.x 与 13.x 的二进制。装到 CUDA 12.8 就只用
+  <code>12.9</code> 这一份（9.x 的 ABI 在 CUDA 12.x 内兼容）。
+</div>
+
+<h3>5.3 拷贝逻辑（常规做法：三处，一个不能少）</h3>
+
+<p>把 <code>12.9</code> 目录里的<b>文件</b>分别拷到 CUDA 12.8 的三个对应目录：</p>
+
+<table>
+  <thead><tr><th>从（cuDNN 解压包）</th><th>到（CUDA 12.8）</th><th>文件数</th><th>不拷会怎样</th></tr></thead>
+  <tbody>
+    <tr><td><code>bin\12.9\*.dll</code></td>
+        <td><code>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\bin\</code></td>
+        <td class="num">8</td>
+        <td>运行期 <code>DllNotFoundException: cudnn64_9.dll</code></td></tr>
+    <tr><td><code>include\12.9\*.h</code></td>
+        <td><code>…\CUDA\v12.8\include\</code></td>
+        <td class="num">7</td>
+        <td><b>编译期</b>找不到 <code>cudnn.h</code>，链接失败</td></tr>
+    <tr><td><code>lib\12.9\x64\*.lib</code></td>
+        <td><code>…\CUDA\v12.8\lib\x64\</code></td>
+        <td class="num">16</td>
+        <td>编译期 <code>LNK1181: 无法打开输入文件 cudnn.lib</code></td></tr>
+  </tbody>
+</table>
+
+<p>等价命令（<b>管理员</b> PowerShell；路径按本机实测填好）：</p>
+
+<pre><span class="c"># 源目录（cuDNN 解压位置）</span>
+$cudnn = 'C:\Program Files\NVIDIA\CUDNN\v9.17'
+$cuda  = 'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8'
+
+<span class="c"># 1) DLL → CUDA\bin</span>
+Copy-Item "$cudnn\bin\12.9\*.dll"  "$cuda\bin\"     -Force
+<span class="c"># 2) 头文件 → CUDA\include</span>
+Copy-Item "$cudnn\include\12.9\*.h" "$cuda\include\" -Force
+<span class="c"># 3) 导入库 → CUDA\lib\x64</span>
+Copy-Item "$cudnn\lib\12.9\x64\*.lib" "$cuda\lib\x64\" -Force</pre>
+
+<h3>5.4 验证（cuDNN 没有 CLI，只能查文件 + 跑一次）</h3>
+
+<pre><span class="c"># ① 文件落地检查：应当分别输出 8 / 7 / 16</span>
+(Get-ChildItem "$env:CUDA_PATH\bin"     -Filter 'cudnn*.dll').Count
+(Get-ChildItem "$env:CUDA_PATH\include" -Filter 'cudnn*.h').Count
+(Get-ChildItem "$env:CUDA_PATH\lib\x64" -Filter 'cudnn*.lib').Count
+
+<span class="c"># ② 版本自证：用头文件里的版本宏（3 = 9.17.0）</span>
+Select-String "$env:CUDA_PATH\include\cudnn_version.h" -Pattern 'CUDNN_MAJOR|CUDNN_MINOR|CUDNN_PATCHLEVEL'</pre>
+
+<p class="small">
+  <code>cudnn_version.h</code> 里能看到 <code>CUDNN_MAJOR 9</code> 等宏，就是 cuDNN 已就位的直接证据。
+  真正跑通要看具体框架（PyTorch / TensorRT 用到的层），本项目不涉及。
+</p>
+
+<div class="badbox">
+  <b>cuDNN 步骤的坑：</b><br>
+  ① <b>只拷了 bin</b> → 运行没问题，但自己编译时找不到头/库；三处必须都拷；<br>
+  ② <b>把 <code>bin\12.9</code> 整个目录拷进 <code>CUDA\bin</code></b> → 变成
+      <code>CUDA\bin\12.9\</code>，Loader 找不到；必须拷<b>目录里的文件</b>；<br>
+  ③ <b>版本线错</b>：给 CUDA 12.x 装 cuDNN for CUDA 13.x → 运行期符号缺失；
+      认准压缩包里的 <code>12.x</code> 目录；<br>
+  ④ <b>以为项目需要它</b> → 本项目不需要（见本节开头的警告），别把 448 MB 的
+      <code>cudnn_engines_precompiled64_9.dll</code> 当成部署必需项。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s6">6. <span class="step">第 4 步</span>TensorRT 10.14.1.48</h2>
+
+<h3>6.1 下载</h3>
+
+<p>
+  <code>developer.nvidia.com/tensorrt</code> → <b>Download Now</b> → 登录 →
+  选 <b>TensorRT 10.14.1</b> → <b>Windows x86_64</b> → 与 CUDA 12.x 对应的 zip
+  （文件名形如 <code>TensorRT-10.14.1.48.Windows.x86_64.cuda-12.x.zip</code>，以官网为准）。
+</p>
+
+<h3>6.2 解压到默认目录</h3>
+
+<p>TensorRT 是<b>绿色包</b>（解压即用，没有安装程序）。本机解压到：</p>
+
+<pre>C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT\v10.14.1.48\
+├── bin\      <span class="c">// nvinfer_10.dll、trtexec.exe、nvinfer_builder_resource_sm120_10.dll …</span>
+├── include\  <span class="c">// NvInfer.h 等</span>
+├── lib\      <span class="c">// nvinfer_10.lib 等导入库</span>
+├── doc\
+└── python\   <span class="c">// 可选：Python wheel</span></pre>
+
+<div class="warnbox">
+  <b>必须保留 <code>bin</code> 里的 builder resource 文件。</b>
+  TensorRT 10.x 把“构建引擎”用的内核资源拆成了按 GPU 架构区分的 DLL
+  （本机 RTX 5060 = <code>sm_120</code> → <code>nvinfer_builder_resource_sm120_10.dll</code>，约 360 MB）。
+  删了它，推理能用、<b>构建引擎会失败</b>并报
+  <code>Unable to load library: nvinfer_builder_resource_sm120_10.dll: 126</code>。
+  整个 <code>bin</code> 目录约 2.8 GB 属正常，不要“只挑几个 dll”拷到别处。
+</div>
+
+<h3>6.3 环境变量</h3>
+
+<p>把 <code>bin</code> 加进<b>系统</b> <code>PATH</code>（本机实测就这一条）：</p>
+
+<pre>%TENSORRT_ROOT%\bin
+<span class="c"># 本机实际值（没有 TENSORRT_ROOT 变量时直接写全路径）：</span>
+C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT\v10.14.1.48\bin</pre>
+
+<p class="small">
+  注意 DLL 都在 <code>bin</code> 里、<code>lib</code> 里是 <code>.lib</code> 导入库（本机 <code>lib</code> 下 0 个 DLL），
+  所以 <b>PATH 只需加 bin</b>；编译期由 CMake 的 <code>link_directories</code> 指向 <code>lib</code>。
+</p>
+
+<h3>6.4 验证</h3>
+
+<pre><span class="c"># 新开 cmd</span>
+trtexec --version</pre>
+
+<p>本机实测输出（首行就是版本证据）：</p>
+
+<pre>&&&& RUNNING TensorRT.trtexec [TensorRT v101401] [b48] # …\TensorRT\v10.14.1.48\bin\trtexec.exe --version
+[11/04/2026-14:40:46] [I] TF32 is enabled by default. Add --noTF32 flag to further improve accuracy with some performance cost.
+=== Model Options ===
+  --onnx=&lt;file&gt;               ONNX model
+  …（随后打印完整帮助）</pre>
+
+<table>
+  <thead><tr><th>看到什么</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>[TensorRT v101401]</code></td><td><b>装对了</b>：v101401 = 10.14.1</td></tr>
+    <tr><td>后面打印了一大段帮助、退出码为 1</td>
+        <td><span class="badge b-warn">本机实测现象，属正常</span>
+        该构建在 <code>--version</code> 之后会继续打印帮助并以非 0 退出；<b>只看版本横幅</b>即可。</td></tr>
+    <tr><td><code>where trtexec</code> → <code>…\TensorRT\v10.14.1.48\bin\trtexec.exe</code></td>
+        <td>PATH 生效</td></tr>
+  </tbody>
+</table>
+
+<div class="badbox">
+  <b>TensorRT 步骤的坑：</b><br>
+  ① <code>trtexec 不是内部或外部命令</code> → PATH 没加 <code>bin</code>，或没新开 cmd；<br>
+  ② <b>把 TRT 解压到了带版本号的别处</b>（如 <code>D:\TensorRT</code>）→ 能用，但记得
+      环境变量/项目脚本里的路径要一起改；本项目默认按
+      <code>C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT\v10.14.1.48</code> 找；<br>
+  ③ <b>TRT 版本与 CUDA 不匹配</b>（如 TRT for CUDA 13 装到 CUDA 12 环境）→
+      <code>nvinfer_10.dll</code> 加载失败或符号缺失；<br>
+  ④ 升级 TRT 后<b>旧的引擎缓存要删</b>（缓存绑定 TRT 版本，头不匹配会自动重建，但会多等几秒）。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s7">7. 环境变量总表（本机实测值）</h2>
+
+<table>
+  <thead><tr><th>变量</th><th>作用域</th><th>值</th><th>谁创建</th></tr></thead>
+  <tbody>
+    <tr><td><code>CUDA_PATH</code></td><td>系统</td>
+        <td><code>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8</code></td>
+        <td>CUDA 安装器自动</td></tr>
+    <tr><td><code>CUDA_PATH_V12_8</code></td><td>系统</td><td>同上</td><td>CUDA 安装器自动</td></tr>
+    <tr><td><code>PATH</code> 追加项</td><td>系统</td>
+        <td><code>%CUDA_PATH%\bin</code><br><code>%CUDA_PATH%\libnvvp</code><br><code>%CUDA_PATH%\lib</code></td>
+        <td>CUDA 安装器自动</td></tr>
+    <tr><td><code>PATH</code> 追加项</td><td>系统</td>
+        <td><code>C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT\v10.14.1.48\bin</code></td>
+        <td><b>手动</b>（TRT 是绿色包）</td></tr>
+    <tr><td>—（cuDNN 无变量）</td><td>—</td>
+        <td>不需要：DLL 在 <code>CUDA\bin</code>，随 CUDA 的 PATH 一起生效</td><td>—</td></tr>
+  </tbody>
+</table>
+
+<div class="bluebox">
+  <b>为什么 cuDNN 不用配环境变量？</b>它被拷进 <code>CUDA\v12.8\bin</code>，
+  而该目录已在 <code>PATH</code> 里 —— 加载 <code>cudnn64_9.dll</code> 时自然能找到。
+  这也是“cuDNN 直接拷进 CUDA 目录”这个传统做法的最大好处：<b>零额外配置</b>。
+</div>
+
+<h3>7.1 检查当前会话里的实际值</h3>
+
+<pre><span class="c"># cmd</span>
+echo %CUDA_PATH%
+where nvcc
+where trtexec
+
+<span class="c"># PowerShell</span>
+$env:CUDA_PATH
+($env:PATH -split ';') | Where-Object { $_ -match 'CUDA|TensorRT' }</pre>
+
+<!-- ============================================================ -->
+<h2 id="s8">8. 一键验证与期望输出</h2>
+
+<h3>8.1 四条命令</h3>
+
+<pre><span class="c"># 在【新开的】cmd 里依次执行</span>
+nvidia-smi          <span class="c">// 驱动</span>
+nvcc -V             <span class="c">// CUDA Toolkit</span>
+trtexec --version   <span class="c">// TensorRT（看 [TensorRT vXXXXXX] 横幅）</span>
+
+<span class="c"># cuDNN（没有 CLI，用文件数验证）</span>
+dir "%CUDA_PATH%\bin\cudnn*.dll" | find /c ".dll"</pre>
+
+<h3>8.2 期望结果对照</h3>
+
+<table>
+  <thead><tr><th>检查项</th><th>期望</th><th>本机实测</th></tr></thead>
+  <tbody>
+    <tr><td><code>nvidia-smi</code></td><td>打印表格，含显卡名与 <code>Driver Version</code></td>
+        <td><span class="badge b-ok">OK</span> <code>581.57</code> / RTX 5060 Laptop / 8151MiB</td></tr>
+    <tr><td><code>nvcc -V</code></td><td><code>release 12.8, V12.8.61</code></td>
+        <td><span class="badge b-ok">OK</span></td></tr>
+    <tr><td><code>trtexec --version</code></td><td>首行含 <code>[TensorRT v101401]</code></td>
+        <td><span class="badge b-ok">OK</span>（随后打印帮助、退出码 1，正常）</td></tr>
+    <tr><td>cuDNN DLL 数</td><td>8</td><td><span class="badge b-ok">OK</span> 8 个</td></tr>
+    <tr><td>cuDNN 头 / 库</td><td>7 / 16</td><td><span class="badge b-ok">OK</span></td></tr>
+    <tr><td><code>where nvcc</code> / <code>where trtexec</code></td><td>各自落在 CUDA\bin、TRT\bin</td>
+        <td><span class="badge b-ok">OK</span></td></tr>
+  </tbody>
+</table>
+
+<h3>8.3 安装完的收尾：跑一次本项目</h3>
+
+<pre><span class="c"># 在 Algorithms\undistortion 下</span>
+powershell -ExecutionPolicy Bypass -File scripts\run_test.ps1</pre>
+
+<p>预期看到（能打印 <code>info</code> 行就说明驱动/CUDA/TRT/原生 DLL 全链路通了）：</p>
+
+<pre>in    : …\demo\raw\PIC_1_1.bmp (5120x4096, CV_8UC1)
+matrix: …\botong25
+info  : 5120x4096 x1, table=240.0 MB (12.0 B/px), device=280.0 MB, staging=pinned,
+        gpu=NVIDIA GeForce RTX 5060 Laptop GPU (26 SM), trt=10.14.1
+timing: h2d=0.829 infer=1.293 d2h=0.810 total=10.222 ms</pre>
+
+<!-- ============================================================ -->
+<h2 id="s9">9. 常见问题速查（10 条）</h2>
+
+<table>
+  <thead><tr><th>#</th><th>现象</th><th>原因</th><th>处理</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><code>'nvidia-smi' 不是内部或外部命令</code></td>
+        <td>驱动没装成，或 <code>C:\Windows\System32</code> 被破坏</td>
+        <td>重装驱动（Notebooks 版）→ <b>重启</b>；确认 <code>C:\Windows\System32\nvidia-smi.exe</code> 存在</td></tr>
+    <tr><td>2</td><td><code>NVIDIA-SMI has failed because it couldn't communicate with the NVIDIA driver</code></td>
+        <td>装完没重启；或驱动被 Windows Update 换掉</td>
+        <td><b>重启</b>；再不行重装驱动</td></tr>
+    <tr><td>3</td><td><code>'nvcc' 不是内部或外部命令</code></td>
+        <td>没新开 cmd；或 PATH 没加 <code>%CUDA_PATH%\bin</code>；或装的是 Runtime 版</td>
+        <td>新开 cmd → 仍不行就查 PATH → 仍不行重装 Toolkit</td></tr>
+    <tr><td>4</td><td><code>'trtexec' 不是内部或外部命令</code></td>
+        <td>TRT 的 <code>bin</code> 没进 PATH（TRT 是绿色包，不会自动加）</td>
+        <td>手动加 <code>…\TensorRT\v10.14.1.48\bin</code> 到系统 PATH → 新开 cmd</td></tr>
+    <tr><td>5</td><td><code>nvidia-smi</code> 显示 <code>CUDA Version: 13.0</code>，以为装错了</td>
+        <td>那是驱动支持的 API 上限，不是 Toolkit 版本</td>
+        <td>用 <code>nvcc -V</code> 看 Toolkit 真实版本（本机 12.8）</td></tr>
+    <tr><td>6</td><td>程序报 <code>cudnn64_9.dll</code> / 符号缺失</td>
+        <td>cuDNN 没装、只拷了 bin、或版本线与 CUDA 不符</td>
+        <td>按 §5.3 三处都拷；确认压缩包里用的是 <code>12.x</code> 目录</td></tr>
+    <tr><td>7</td><td>链接报 <code>LNK1181: 无法打开输入文件 cudnn.lib</code></td>
+        <td>只拷了 DLL，没拷 <code>lib\12.9\x64\*.lib</code></td>
+        <td>把 16 个 <code>.lib</code> 拷到 <code>CUDA\v12.8\lib\x64</code></td></tr>
+    <tr><td>8</td><td>构建引擎报 <code>Unable to load library: nvinfer_builder_resource_sm120_10.dll: 126</code></td>
+        <td>TRT 的 <code>bin</code> 被裁剪，缺 GPU 架构对应的 builder resource</td>
+        <td>恢复该文件（或重解压 TRT 包）；不要只挑几个 DLL</td></tr>
+    <tr><td>9</td><td>装 CUDA 后驱动版本变回旧版</td>
+        <td>安装时勾了 <b>Display Driver</b></td>
+        <td>重装最新驱动（581.57 或其他 GRD/SD）→ 重启</td></tr>
+    <tr><td>10</td><td>C 盘红了</td>
+        <td>CUDA 5.7 GB + TRT 2.8 GB + cuDNN 解压包 1.3 GB</td>
+        <td>cuDNN 拷完后删解压包（约省 1.3 GB）；TRT 的 <code>doc/</code>、<code>python/</code> 可不装</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s10">10. 与本项目的关系：哪些真必需</h2>
+
+<table>
+  <thead><tr><th>组件</th><th>本项目是否必需</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>显卡驱动</td><td><span class="badge b-ok">必需</span></td>
+        <td>CUDA 12.8 要求 R570+ 驱动；本机 581.57 满足</td></tr>
+    <tr><td>CUDA Toolkit（<code>cudart64_12.dll</code>）</td><td><span class="badge b-ok">必需（运行时）</span></td>
+        <td>只有 <code>cudart</code> 是运行期依赖；<code>nvcc</code> 只有自己编译原生库时才需要</td></tr>
+    <tr><td>TensorRT <code>nvinfer_10.dll</code></td><td><span class="badge b-ok">必需</span></td><td>推理主体，412 MB</td></tr>
+    <tr><td>TRT <code>nvinfer_builder_resource_sm120_10.dll</code></td><td><span class="badge b-ok">必需</span></td>
+        <td>因为交付层<b>不缓存引擎</b>，每次启动都要现场构建；缺了 → <code>EngineBuild(-9)</code></td></tr>
+    <tr><td>VC++ 2015-2022 x64 运行时</td><td><span class="badge b-ok">必需</span></td>
+        <td><code>MSVCP140</code> / <code>VCRUNTIME140(_1)</code>；多数机器随其它软件已装</td></tr>
+    <tr><td>cuDNN</td><td><span class="badge b-bad">不需要</span></td>
+        <td>网络无 Conv/RNN（隔离实测：不带 cudnn/cublas 也能完整构建+推理）</td></tr>
+    <tr><td>cuBLAS</td><td><span class="badge b-bad">不需要</span></td><td>同上</td></tr>
+    <tr><td><code>nvinfer_plugin</code> / <code>nvinfer_dispatch</code> / <code>nvinfer_lean</code></td>
+        <td><span class="badge b-bad">不需要</span></td><td>无自定义 plugin；非 lean 运行时</td></tr>
+  </tbody>
+</table>
+
+<div class="card">
+  <div class="kv">
+    <dt>磁盘占用（本机实测）</dt>
+    <dd>CUDA v12.8 <b>5,795 MB</b> · TensorRT 10.14 <b>2,852 MB</b> · cuDNN 解压包 <b>1,304 MB</b>
+        （拷进 CUDA 的只有约 889 MB）→ 全装约 <b>9.7 GB</b></dd>
+    <dt>部署时真正要带的</dt>
+    <dd>驱动/CUDA 走安装包；应用目录里只需 <code>undist_api.dll</code> +
+        <code>nvinfer_10.dll</code> + builder resource + <code>cudart64_12.dll</code>（详见 UNDIST-106 §3）</dd>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s11">11. 附录：本机实测原始输出</h2>
+
+<h3>11.1 版本与路径</h3>
+<pre>nvidia-smi  → NVIDIA-SMI 581.57 / Driver Version: 581.57 / CUDA Version: 13.0
+              GPU: NVIDIA GeForce RTX 5060 Laptop GPU, 8151MiB
+nvcc -V     → Cuda compilation tools, release 12.8, V12.8.61
+trtexec     → &amp;&amp;&amp;&amp; RUNNING TensorRT.trtexec [TensorRT v101401] [b48]
+where 解析  → nvidia-smi : C:\Windows\System32\nvidia-smi.exe
+              nvcc       : C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\bin\nvcc.exe
+              trtexec    : C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT\v10.14.1.48\bin\trtexec.exe</pre>
+
+<h3>11.2 安装目录与体积</h3>
+<pre>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8            5,795 MB
+C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT\v10.14.1.48  2,852 MB
+C:\Program Files\NVIDIA\CUDNN\v9.17                                 1,304 MB</pre>
+
+<h3>11.3 cuDNN 落地清单（CUDA\v12.8）</h3>
+<pre>bin\       cudnn64_9.dll(0.3MB) cudnn_adv64_9.dll(257MB) cudnn_cnn64_9.dll(3MB)
+           cudnn_engines_precompiled64_9.dll(448MB) cudnn_engines_runtime_compiled64_9.dll(26MB)
+           cudnn_graph64_9.dll(2MB) cudnn_heuristic64_9.dll(52MB) cudnn_ops64_9.dll(101MB)
+include\   cudnn.h cudnn_adv.h cudnn_backend.h cudnn_cnn.h cudnn_graph.h cudnn_ops.h cudnn_version.h
+lib\x64\   cudnn.lib cudnn64_9.lib cudnn_adv.lib cudnn_adv64_9.lib …（共 16 个）</pre>
+
+<h3>11.4 相关文档</h3>
+<table>
+  <thead><tr><th>文档</th><th>内容</th></tr></thead>
+  <tbody>
+    <tr><td><a href="UNDIST-106-去畸变Undistortion_项目使用说明_目录结构_环境配置与集成_20261104.html">UNDIST-106</a></td>
+        <td>项目使用说明：依赖三分类、上位机接入、部署形态、FAQ</td></tr>
+    <tr><td><a href="UNDIST-107-去畸变Undistortion_最小开始_Test调用说明_20261104.html">UNDIST-107</a></td>
+        <td>最小开始：Test 的配置参数 / 初始化 / 调用 / 释放</td></tr>
+    <tr><td><a href="../../document/UNDIST-105-去畸变Undistortion_项目梳理_结构与功能保留去除分析_20261104.html">UNDIST-105</a></td>
+        <td>项目梳理：为什么只留 Mat、日志/缓存策略、依赖决策</td></tr>
+  </tbody>
+</table>
+
+<hr>
+<p class="small">
+  UNDIST-108 · 2026-11-04 · 位置：<code>Algorithms/undistortion/csharp/document/</code> ·
+  基准机：Win11 26200 / RTX 5060 Laptop 8 GB / 驱动 581.57 / CUDA 12.8.61 /
+  TensorRT 10.14.1.48 / cuDNN 9.17 / VC++ 14.50 ·
+  文中所有路径、版本、输出均来自本机实测。
+</p>
+
+</div>
+</body>
+</html>
