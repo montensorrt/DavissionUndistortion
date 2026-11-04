@@ -1,0 +1,11 @@
+# 行尾策略：显式关闭 Git 的行尾自动转换。
+#
+# 本仓库是工程目录的**逐字节快照**：仓库文件必须与工程目录一致，才能用 MD5/SHA256 对拍
+# （尤其 C++ 源文件混用 CRLF/LF、`.sln`/`.csproj` 为 CRLF）。
+#
+# 若沿用 core.autocrlf=true，git add 会把 CRLF 规范化为 LF：每个文件产生全文件 diff，
+# 原始字节永久丢失，且 Download ZIP / Raw 不做反向还原。
+#
+# 因此声明 `* -text`：Git 不做任何转换，仓库字节与工程目录逐字节一致。
+
+* -text

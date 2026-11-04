@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>去畸变 Standalone V0 —— 算法方案分析与 Release 测试总结</title>
+<style>
+  :root{
+    --ink:#1a2028; --ink2:#42505e; --line:#dfe5ec; --bg:#f6f8fb; --card:#ffffff;
+    --accent:#1f6feb; --accent2:#0b4ea2; --ok:#177f4b; --warn:#b45309; --bad:#b91c1c;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+       line-height:1.72;font-size:15px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px 96px}
+  header.hero{background:linear-gradient(135deg,#0b2545 0%,#123f6d 55%,#1f6feb 100%);
+       color:#fff;padding:52px 28px 44px;margin-bottom:34px}
+  header.hero .inner{max-width:1180px;margin:0 auto}
+  header.hero h1{margin:0 0 10px;font-size:31px;letter-spacing:.4px;font-weight:700}
+  header.hero .sub{opacity:.92;font-size:15.5px;max-width:900px}
+  header.hero .tags{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+  header.hero .tag{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+       padding:4px 11px;border-radius:999px;font-size:12.5px}
+  h2{margin:52px 0 14px;font-size:23px;padding-bottom:9px;border-bottom:2px solid var(--accent);
+     color:var(--accent2)}
+  h3{margin:32px 0 10px;font-size:17.5px;color:var(--ink)}
+  h4{margin:22px 0 8px;font-size:15px;color:var(--ink2)}
+  p{margin:10px 0}
+  code{font-family:var(--mono);background:#eef2f7;padding:1.5px 5px;border-radius:4px;
+       font-size:13px;color:#0b3d75}
+  pre{background:#0f1a26;color:#dbe6f2;padding:16px 18px;border-radius:8px;overflow-x:auto;
+      font-family:var(--mono);font-size:12.70px;line-height:1.62;border:1px solid #1d2c3c}
+  pre .c{color:#7d93a8}
+  pre .k{color:#71b7ff}
+  pre .s{color:#a5d6a7}
+  table{border-collapse:collapse;width:100%;margin:16px 0;background:var(--card);
+        border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:13.6px}
+  th,td{padding:8px 11px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#eef3f9;font-weight:600;color:#22374f;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(even){background:#fbfcfe}
+  td.num,th.num{text-align:right;font-family:var(--mono);font-size:12.9px;white-space:nowrap}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+        padding:18px 22px;margin:18px 0;box-shadow:0 1px 2px rgba(16,32,56,.04)}
+  .kv{display:grid;grid-template-columns:190px 1fr;gap:6px 16px;font-size:14px}
+  .kv dt{color:var(--ink2);font-weight:600}
+  .kv dd{margin:0}
+  .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;
+         font-weight:600;letter-spacing:.2px}
+  .b-ok{background:#e3f5ea;color:var(--ok);border:1px solid #b9e3ca}
+  .b-warn{background:#fdf1e0;color:var(--warn);border:1px solid #f3d3a3}
+  .b-bad{background:#fdecec;color:var(--bad);border:1px solid #f5c1c1}
+  .b-info{background:#e8f0fd;color:var(--accent2);border:1px solid #c2d9fb}
+  .note{border-left:4px solid var(--accent);background:#f0f6ff;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .warnbox{border-left:4px solid var(--warn);background:#fff8ee;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .bluebox{border-left:4px solid #6b21a8;background:#f8f2ff;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .badbox{border-left:4px solid var(--bad);background:#fff3f3;padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:10px;
+       padding:16px 26px;margin:26px 0}
+  .toc ol{margin:6px 0 0;padding-left:20px}
+  .toc a{color:var(--accent2);text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  .toc > ol > li{margin:4px 0;font-weight:600}
+  .toc ol ol li{font-weight:400;font-size:13.6px}
+  .bar{display:flex;align-items:center;gap:10px;margin:5px 0;font-size:13.2px}
+  .bar .lbl{width:186px;flex:0 0 186px;color:var(--ink2)}
+  .bar .track{flex:1;height:19px;background:#eaeff5;border-radius:4px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:4px}
+  .bar .val{width:126px;flex:0 0 126px;text-align:right;font-family:var(--mono);font-size:12.6px}
+  figure{margin:22px 0;text-align:center}
+  figure img{max-width:100%;border:1px solid var(--line);border-radius:8px;background:#fff}
+  figcaption{margin-top:8px;font-size:12.8px;color:var(--ink2)}
+  .small{font-size:12.8px;color:var(--ink2)}
+  hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:860px){.two{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="inner">
+    <h1>去畸变 Standalone V0 —— 算法方案分析与 Release 测试总结</h1>
+    <div class="sub">
+      针对 <code style="background:rgba(255,255,255,.16);color:#fff">Algorithms/undistortion_standaloneV0</code>
+      的完整梳理：工程结构、算法语义（已用独立参考实现证明完全掌握）、
+      在 <code style="background:rgba(255,255,255,.16);color:#fff">demo/raw</code> 上跑通的 Release 流程、
+      性能统计与瓶颈归因。本文是「现状测试总结」，
+      新方案（TensorRT + C#）的设计与预估见配套文档 <b>UNDIST-002</b>。
+    </div>
+    <div class="tags">
+      <span class="tag">Release / MSVC 19.44 / AVX2+FMA</span>
+      <span class="tag">5120 × 4096 = 20.97 MPix</span>
+      <span class="tag">40 张实测图 / 838.86 MPix 逐像素比对</span>
+      <span class="tag">复刻实现 bit-exact 0 差异</span>
+      <span class="tag">infer 均值 63.82 ms</span>
+      <span class="tag">文档版本 1.0 / 2026-10-26</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="toc">
+  <b>目录</b>
+  <ol>
+    <li><a href="#s1">结论摘要</a></li>
+    <li><a href="#s2">项目梳理</a>
+      <ol>
+        <li><a href="#s2-1">目录结构与各子工程的真实角色</a>
+          <ol><li><a href="#s2-1-1">CAPP 与 CPPAPP 到底是什么关系（实测结论）</a></li></ol></li>
+        <li><a href="#s2-2">构建体系与依赖</a></li>
+        <li><a href="#s2-3">三层封装（C++ / C ABI / C#）</a></li>
+        <li><a href="#s2-4">梳理中发现的工程问题清单</a></li>
+      </ol>
+    </li>
+    <li><a href="#s3">去畸变算法方案分析</a>
+      <ol>
+        <li><a href="#s3-1">算法本质：预计算 4-tap 双线性 LUT 重映射</a></li>
+        <li><a href="#s3-2">权重矩阵的数据格式（12 × 80 MiB）</a></li>
+        <li><a href="#s3-3">执行流水线与伪代码</a></li>
+        <li><a href="#s3-4">边界语义：全有或全无</a></li>
+        <li><a href="#s3-5">数值语义：clamp → +0.5 → trunc 与 FMA 链</a></li>
+        <li><a href="#s3-6">为什么不能用 cv::remap / 纹理采样替代</a></li>
+      </ol>
+    </li>
+    <li><a href="#s4">跑通流程记录</a></li>
+    <li><a href="#s5">一致性验证</a></li>
+    <li><a href="#s6">Release 耗时统计</a>
+      <ol><li><a href="#s6-2-1">端到端 103.06 ms 到底是什么（Amdahl 上限）</a></li></ol></li>
+    <li><a href="#s7">性能瓶颈归因</a></li>
+    <li><a href="#s8">CPU 侧优化建议（按收益排序）</a></li>
+    <li><a href="#s9">结论与后续</a></li>
+    <li><a href="#s10">附录：数据文件与复现命令</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s1">1. 结论摘要</h2>
+
+<div class="card">
+  <dl class="kv">
+    <dt>算法已完全掌握</dt>
+    <dd>用一份<b>与库源码零共享</b>的复刻实现（写在测试程序里）跑完 40 张图，
+        与正式接口产物逐字节比对 <b>差异 0 像素 / 838,860,800 像素</b>。
+        再用 NumPy 独立实现交叉验证，差异 253 / 41,943,040（6.03×10⁻⁶，最大 ±1 LSB），
+        差异<b>全部</b>来自 FMA 融合与不融合的末位舍入。</dd>
+
+    <dt>流程已跑通</dt>
+    <dd><code>demo/raw</code> 40 张 5120×4096 灰度 BMP → 去畸变 → <code>demo/output0</code>
+        40 张同尺寸 BMP（合计 0.781 GB），几何正确（见 §4 对比图）。</dd>
+
+    <dt>Release 实测性能</dt>
+    <dd>算法核心 <code>infer()</code> <b>均值 63.82 ms / 中位 64.63 ms</b>
+        （min 58.00，max 72.23，p90 66.68，p99 71.22，σ 3.05）；
+        端到端（读 BMP + 去畸变 + 写 BMP）<b>均值 103.06 ms</b>。
+        折算吞吐：<b>324.5 MPix/s</b>，<b>15.5 张/s</b>（仅算法）/ <b>9.7 张/s</b>（端到端）。
+        与仓库内既有文档「~70 ms / 图」的口径一致（本机更快）。<br>
+        <b>注意 103.06 ms 里有 38.1%（39.24 ms）与算法无关</b>——
+        是 BMP 编解码 + 读盘的"磁盘模拟相机"脚手架代价。
+        因此它是"离线批处理"的基线，<b>不是</b>产线部署基线；
+        把 GPU 算法塞回这个链路，Amdahl 上限只有 2.6×（详见 §6.2.1）。</dd>
+
+    <dt>21.1% 的时间花在调试扫描上</dt>
+    <dd><code>infer()</code> 内部对 2097 万像素做了两次全图 <code>min/max</code> 扫描
+        （<b>10.03 ms + 3.44 ms = 13.47 ms</b>），结果<b>只喂给 LOG_DEBUG</b>、
+        不参与任何计算。Release 下应当编译期关闭，直接省 21.1%。</dd>
+
+    <dt>CPU 侧已被 gather 指令锁死</dt>
+    <dd>gather 阶段 35.63 ms（占 55.8%）受 <code>vpgatherdd</code> 微码吞吐限制。
+        多线程把「gather+量化」从 42.64 ms（1T）压到 23.57 ms（20T），
+        <b>仅 1.81× 加速</b>——不是带宽而是指令吞吐在限制，因此 CPU 侧没有数量级空间。</dd>
+
+    <dt>真正的数量级提升要靠 GPU</dt>
+    <dd>同一份数学在 RTX 5060 Laptop 上用 TensorRT 原生算子复现，
+        <b>0.9765 ms/图（p50）</b>，逐像素差异 5.59×10⁻⁶（最大 ±1）。
+        即 <b>65.4×</b>（kernel）/<b>20.9×</b>（含页锁内存 H2D+D2H）。
+        详见配套文档 UNDIST-002。</dd>
+  </dl>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s2">2. 项目梳理</h2>
+
+<h3 id="s2-1">2.1 目录结构与各子工程的真实角色</h3>
+
+<pre><span class="c">Algorithms/undistortion_standaloneV0/</span>
+├─ <span class="k">CAPP/</span>                        <span class="c">★ 唯一实际在构建的工程（共享库 + 测试 exe）</span>
+│  ├─ CMakeLists.txt             162 行；生成 Undistortion.dll + test_undistortion.exe
+│  ├─ include/                   CommonTypes.h / CommonTypes_C_API.h / Logger.h
+│  │                             Logger_C_API.h / Undistortion.h / Undistortion_C_API.h
+│  ├─ src/                       Undistortion.cpp (1227 行，算法核心)
+│  │                             Undistortion_C_API.cpp / Logger.cpp / Logger_C_API.cpp
+│  │                             CommonTypes_C_API.cpp
+│  ├─ test/test_undistortion.cpp 348 行；硬编码 2DAOI 绝对路径的旧 harness
+│  ├─ build/                     VS2022 工程 + bin/Undistortion.dll, bin/test_undistortion.exe
+│  └─ document/                  10 份历史优化记录（GBK 编码）
+├─ <span class="k">reference/</span>                    <span class="c">✔ 2026-10-26 新建：只读参考实现归档（不参与构建）</span>
+│  ├─ Undistortion_raw.cpp       20,804 B；原 CPPAPP 独有文件，OpenCV Mat 版原始实现
+│  └─ README.md                  为什么保留 / 为什么不能放回 src/ 的完整说明
+├─ <span class="c">CPPAPP/  ← 已于 2026-10-26 整目录删除（27 文件 / 274,005 B）</span>
+│  <span class="c">删除依据：29 文件比对 22 同 / 5 异 / 各 1 独有；实测 6 个编译 error；</span>
+│  <span class="c">构建系统与源码均无引用；唯一有价值的 Undistortion_raw.cpp 已移入 reference/</span>
+├─ CSharpApp/                    C# P/Invoke 封装（Undistor.csproj）
+│  ├─ Undistor/Undistortion_NativeAPI.cs   5 个 AOI_* DllImport
+│  ├─ Undistor/UndistortionProcessor.cs    高层封装（Mat in / Mat out）
+│  ├─ Undistor/UndistortionRunner.cs       测试主程序（照抄 test_undistortion.cpp 的旋转流程）
+│  └─ ReferenceDLL/opencv_world4120[d].dll
+├─ botong25/                     <span class="c">★ 权重数据：12 × 83,886,080 B = 960 MiB</span>
+├─ demo/raw/                     <span class="c">★ 输入：40 张 5120×4096 8bit 灰度 BMP（20972598 B/张）</span>
+├─ demo/output0/                 <span class="c">★ 输出：本次跑通产物，40 张同尺寸 BMP（0.781 GB）</span>
+├─ build/                        <span class="c">⚠ 陈旧顶层 cache，CMAKE_HOME_DIRECTORY 仍指向
+│                                  E:/algrithm/project/2DAOI/undistortion_standalone/CAPP</span>
+├─ .vscode/settings.json         <span class="c">⚠ 同样指向已不存在的 2DAOI 路径</span>
+├─ prompt/                       3 份需求提示（梳理分析 / c_api / csharp_api）
+├─ tools/                        <span class="c">本次新增：构建脚本 + 全部分析脚本</span>
+└─ document/                     <span class="c">本次新增：本文 + UNDIST-002 + data/（原始测量数据）</span></pre>
+
+<table>
+  <thead><tr><th>子工程</th><th>产物</th><th>状态</th><th>结论</th></tr></thead>
+  <tbody>
+    <tr><td><code>CAPP</code></td>
+        <td><code>Undistortion.dll</code>（114,688 B）<br><code>test_undistortion.exe</code>（164,352 B）</td>
+        <td><span class="badge b-ok">可构建 / 曾构建</span></td>
+        <td><b>唯一权威实现</b>。本次所有测试均基于它，未改动其任何源文件。</td></tr>
+    <tr><td><code>CPPAPP</code></td>
+        <td>—</td>
+        <td><span class="badge b-bad">无法构建</span></td>
+        <td>算法源文件与 CAPP 字节级相同，但额外携带 <code>Undistortion_raw.cpp</code>。
+            该文件重新定义了 <code>ImageUndistorterImpl</code> 与
+            <code>UndistortionConfig::isValid()</code>，
+            且其 <code>ErrorCode</code> 枚举（<code>INVALID_CONFIGURATION</code>/
+            <code>FILE_ERROR</code>/<code>PROCESSING_ERROR</code>）在 CAPP 的
+            <code>CommonTypes.h</code> 里并不存在 → 与 <code>Undistortion.cpp</code>
+            同链接时必然重定义/未定义。<b>建议：保留为
+            <code>reference/Undistortion_raw.cpp</code> 单独归档，或删除，
+            不要放在会被 GLOB 扫到的 src/ 下。</b></td></tr>
+    <tr><td><code>CSharpApp</code></td>
+        <td><code>Undistor.dll</code>（.NET）</td>
+        <td><span class="badge b-warn">可编译，但整链未在本机验证</span></td>
+        <td>P/Invoke 签名与 <code>Undistortion_C_API.h</code> 匹配
+            （<code>Pack=1</code>、<code>matrixPath[512]</code>、
+            <code>errorMessage[256]</code> 均一致）。问题见 §2.4。</td></tr>
+  </tbody>
+</table>
+
+<div class="warnbox">
+<b>关于 <code>test_undistortion.cpp</code> 与 <code>UndistortionRunner.cs</code> 里的「旋转 90°」：</b><br>
+原 harness 的流程是 <code>imread → rotate90CW → infer → rotate90CCW → imwrite</code>，
+配合 <code>MATRIX_WIDTH=5120 / MATRIX_HEIGHT=4096</code>。
+但 <code>demo/raw</code> 里的 BMP 头部实测为 <b>width=5120, height=4096</b>（位图高度为正 = 自底向上存储，
+<code>imread</code> 已翻正），旋转 90° 后变成 4096×5120，
+<code>infer()</code> 的 <code>width != matrixWidth_</code> 校验会直接返回
+<code>INVALID_INPUT</code>。<br>
+即：<b>这批 demo 数据不需要旋转</b>——它是「已旋转到与矩阵同向」的输入。
+旋转步骤是上一个数据集（<code>2DAOI</code>，原始 4096×5120 传感器图）的遗留。
+本次跑通流程按「不旋转」执行，并在新 harness 里把它做成可选开关。
+</div>
+
+<h4 id="s2-1-1">2.1.1 CAPP 与 CPPAPP 的关系（实测结论 · 已按结论执行清理）</h4>
+
+<div class="note">
+<p style="margin-top:0">
+<b>结论：不是「CAPP = CPPAPP + C 接口」的包含关系，而是「同一份代码分叉出的两个分支」。</b>
+两个目录<b>都</b>包含完整的 C 接口（5 个 C-API 文件字节完全相同），
+真正的差别只有三处：<b>①构建脚本产出的目标不同；②CPPAPP 多了一个会炸掉构建的参考实现文件；
+③CPPAPP 有几处未完成试验留下的改动。</b>
+</p>
+<p style="margin-bottom:0">
+<b>✅ 已于 2026-10-26 执行：</b>新建 <code>reference/</code> 并归档
+<code>Undistortion_raw.cpp</code>（+ <code>README.md</code> 说明保留理由），
+把 <code>Undistortion.cpp:503</code> 的注释改为指向新位置，
+然后<b>整目录删除 <code>CPPAPP/</code></b>（27 文件 / 274,005 B）。
+删除后重新构建 ── <b>3 个目标全部成功</b>；重跑 3 张图比对 ──
+<b>差异仍为 0 像素</b>，产物未受影响。
+</p>
+</div>
+
+<table>
+  <thead><tr><th>维度</th><th>CAPP</th><th>CPPAPP</th><th>结论</th></tr></thead>
+  <tbody>
+    <tr><td><b>算法源文件</b><br><code>src/Undistortion.cpp</code></td>
+        <td colspan="2" style="text-align:center">SHA-256 <b>完全相同</b>（58,432 B）</td>
+        <td>算法本身无差异</td></tr>
+    <tr><td><b>C 接口</b><br>5 个 C-API 文件</td>
+        <td colspan="2" style="text-align:center"><b>两边都有</b>；
+            <code>Undistortion_C_API.h</code>、<code>CommonTypes_C_API.h</code>、
+            <code>Logger_C_API.h/.cpp</code> 字节相同；
+            <code>Undistortion_C_API.cpp</code> 仅 3 处 <code>ErrorCode</code> 名不同
+            （CPPAPP 用了不存在的 <code>PROCESSING_ERROR</code>）</td>
+        <td><b>不存在「CAPP 才有 C 接口」</b></td></tr>
+    <tr><td><b>构建脚本</b><br><code>CMakeLists.txt</code></td>
+        <td>6,408 B；<code>project(Undistortion)</code>；
+            构建 <b>SHARED 库 <code>Undistortion.dll</code></b>
+            （<b>含</b> C-API 源）+ <code>test_undistortion.exe</code></td>
+        <td>4,402 B；<code>project(UndistortionTest)</code>；
+            <b><code>EXCLUDE REGEX ".*_C_API\\.cpp$"</code></b>，
+            只构建一个 <code>test_undistortion.exe</code></td>
+        <td><b>唯一的实质功能差异：只有 CAPP 的脚本会把 C 接口编成 DLL</b></td></tr>
+    <tr><td><b>独有文件</b></td>
+        <td><code>test/bench_undistortion.cpp</code>（本次新增的基准/校验程序）</td>
+        <td><code>src/Undistortion_raw.cpp</code>（440 行，OpenCV Mat 版）</td>
+        <td>CPPAPP 的独有文件是<b>负资产</b>（见下）</td></tr>
+    <tr><td><b>其余文件</b></td>
+        <td colspan="2" style="text-align:center">README / CMakeSettings / .gitignore / prompt /
+            10 份 document / Logger.cpp / Undistortion.h / test_undistortion.cpp
+            —— <b>全部字节相同</b></td>
+        <td>纯重复</td></tr>
+    <tr><td><b>能否构建（实测）</b></td>
+        <td><span class="badge b-ok">成功</span> 3 个目标全部生成</td>
+        <td><span class="badge b-bad">失败</span> 6 个 error：
+            <code>C2084</code>（<code>isValid</code>/<code>reset</code> 重复定义）×2、
+            <code>C3861</code>（<code>LOG_DEBUGF</code> 找不到）×4</td>
+        <td>CPPAPP 从来不是一个可用工程</td></tr>
+  </tbody>
+</table>
+
+<div class="badbox">
+<b>CPPAPP 为什么一定编不过（三重问题，前两重已实测复现）：</b>
+<ol style="margin:6px 0 0">
+  <li><b>头文件级重复定义</b>：<code>CommonTypes.h</code> 里 <code>isValid()/reset()</code>
+      已是 <code>inline</code> 定义，<code>Undistortion_raw.cpp</code> 又给了实体 →
+      <code>error C2084</code>。<br>
+      （这也是为什么 CPPAPP 的 <code>CommonTypes.h</code>/<code>Logger.h</code> 比 CAPP 大：
+      它把 <code>AOI_MAX_*</code> 常量自己定义了一遍，并去掉了
+      <code>#include "CommonTypes_C_API.h"</code>——一次没走通的解耦尝试。）</li>
+  <li><b>日志宏不匹配</b>：该文件用了 <code>LOG_DEBUGF</code>，而当前 <code>Logger.h</code>
+      只提供 <code>LOG_DEBUG(module, fmt, ...)</code> 形式 →
+      <code>error C3861</code>。说明它是从更早一版 <code>Logger</code> 接口下拷来的。</li>
+  <li><b>链接期必然冲突（即使修好前两项）</b>：该文件完整实现了
+      <code>ImageUndistorter</code> 的构造函数、析构函数、移动构造/赋值、
+      <code>setConfig</code>、<code>isConfigured</code>、<code>infer</code>
+      （224–440 行），与 <code>Undistortion.cpp</code> 逐一重复 →
+      链接时 <code>LNK2005</code> 重复符号。
+      <b>它是「另一个完整实现」，不是「补充」。</b></li>
+</ol>
+</div>
+
+<div class="warnbox">
+<b>删除 CPPAPP 前的三步安全检查（全部已核对）：</b>
+<ol style="margin:6px 0 0">
+  <li><b>构建系统无引用</b>：全仓 <code>CMakeLists.txt</code> / <code>.sln</code> /
+      <code>.csproj</code> / <code>.vscode</code> <b>均未引用 CPPAPP</b>（已 grep 确认）。</li>
+  <li><b>源码无引用</b>：只有 <code>CAPP/src/Undistortion.cpp:503</code> 的一行注释
+      「与 <code>Undistortion_raw.cpp</code> 保持一致」——把该文件归档后改成引用
+      <code>reference/Undistortion_raw.cpp</code> 即可。</li>
+  <li><b>唯一的文档引用已失效</b>：<code>CSharpApp/prompt/feipai_measurement_awg.md</code>
+      三处指向 <code>CPPAPP/test/test_awg_coc_measurement.cpp</code>，
+      <b>而该文件根本不存在</b>（<code>CPPAPP/test</code> 下只有
+      <code>test_undistortion.cpp</code>）→ 本来就已断链，删除不影响。</li>
+</ol>
+</div>
+
+<h3 id="s2-2">2.2 构建体系与依赖</h3>
+
+<table>
+  <thead><tr><th>项</th><th>值</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>生成器</td><td>Visual Studio 17 2022 / x64</td><td>CMake 4.2.0-rc1</td></tr>
+    <tr><td>C++ 标准</td><td>C++17</td><td><code>CMAKE_CXX_STANDARD_REQUIRED ON</code></td></tr>
+    <tr><td>Release 编译选项</td><td><code>/Zi /O2 /MD /arch:AVX2</code> + <code>/MP /utf-8</code></td>
+        <td><b>注意</b>：<code>/arch:AVX2</code> 已隐含 FMA 代码生成；
+            <code>add_compile_definitions(__FMA__)</code> 又强制定义了 <code>__FMA__</code></td></tr>
+    <tr><td>OpenCV</td><td>4.12.0，<code>E:/3rdparty/opencv/build</code></td>
+        <td>仅用于 <code>imread/imwrite</code> 与少量类型；算法本身不依赖 OpenCV</td></tr>
+    <tr><td>目标</td><td><code>Undistortion</code>(SHARED)、<code>test_undistortion</code>(EXE)</td>
+        <td>本次新增 <code>bench_undistortion</code>(EXE)，见 §4</td></tr>
+    <tr><td>输出目录</td><td><code>build/bin</code>、<code>build/lib</code></td><td>由 <code>RUNTIME_OUTPUT_DIRECTORY_*</code> 指定</td></tr>
+  </tbody>
+</table>
+
+<div class="badbox">
+<b>本机构建踩到的第一个坑（已固化进 <code>tools/build_release.bat</code>）：</b>
+系统环境变量里同时存在 <code>NO_PROXY</code> 与 <code>no_proxy</code>（仅大小写不同）。
+MSBuild 的 <code>ToolTask</code> 用对大小写不敏感的 <code>Hashtable</code> 组装子进程环境，
+抛 <code>System.ArgumentException</code>，表现为
+<code>No CMAKE_CXX_COMPILER could be found</code> / <code>The C compiler identification is unknown</code>，
+与 MSVC 是否安装毫无关系。脚本里先清空全部 <code>*_proxy</code> 再进 <code>vcvars64.bat</code>。
+</div>
+
+<h3 id="s2-3">2.3 三层封装（C++ / C ABI / C#）</h3>
+
+<table>
+  <thead><tr><th>层</th><th>文件</th><th>对外形态</th><th>当前用法</th></tr></thead>
+  <tbody>
+    <tr><td>C++ 对象接口</td>
+        <td><code>include/Undistortion.h</code></td>
+        <td><code>class ImageUndistorter</code>（PIMPL）<br>
+            <code>setConfig()</code> / <code>isConfigured()</code> / <code>infer()</code> / <code>benchmark()</code></td>
+        <td>进程内直接链接。<code>infer()</code> 是 <code>noexcept</code>，
+            用 <code>BaseResult{errorCode, errorMessage[256], processingTime}</code> 回传</td></tr>
+    <tr><td>C ABI</td>
+        <td><code>Undistortion_C_API.h/.cpp</code><br><code>CommonTypes_C_API.h</code></td>
+        <td>5 个导出：<code>AOI_Undistortion_Create / Destroy / SetConfig /
+            IsConfigured / Infer</code><br>句柄 = <code>void*</code>，<code>extern "C"</code>，
+            返回 <code>int</code>（0 = 成功）</td>
+        <td>供 C# 通过 P/Invoke 调用；无 YAML 配置、无 timing 分离字段、
+            无「谁负责释放输出缓冲区」的约定（输出由调用方预分配）</td></tr>
+    <tr><td>C# 封装</td>
+        <td><code>Undistortion_NativeAPI.cs</code><br><code>UndistortionProcessor.cs</code></td>
+        <td><code>Initialize(matrixPath,w,h,ch)</code> /
+            <code>ProcessImage(Mat) → Mat</code> / <code>Dispose()</code></td>
+        <td><code>Mat.GetArray</code> → 托管 <code>byte[]</code> →
+            <code>GCHandle.Pinned</code> → native → <code>Mat.SetArray</code>。
+            <b>每帧产生 2 次 21 MB 托管内存拷贝 + 2 次 21 MB 数组分配</b></td></tr>
+  </tbody>
+</table>
+
+<h3 id="s2-4">2.4 梳理中发现的工程问题清单</h3>
+
+<table>
+  <thead><tr><th>#</th><th>位置</th><th>问题</th><th>影响</th><th>建议</th></tr></thead>
+  <tbody>
+    <tr><td>P1</td><td><code>build/CMakeCache.txt</code>、<code>.vscode/settings.json</code></td>
+        <td><code>CMAKE_HOME_DIRECTORY</code> 与 <code>cmake.sourceDirectory</code> 仍指向
+            <code>E:/algrithm/project/2DAOI/undistortion_standalone/CAPP</code></td>
+        <td>在 IDE 里直接「生成」会失败或构建到旧源码</td>
+        <td>删除顶层 <code>build/</code>，把 <code>.vscode/settings.json</code>
+            改成本仓库 <code>CAPP</code> 的相对路径</td></tr>
+    <tr><td>P2</td><td><code>CPPAPP/</code>（整目录）</td>
+        <td>与 CAPP 是同源分叉；其独有文件 <code>Undistortion_raw.cpp</code>
+            既是头文件级重复定义（<code>C2084</code>）、又用了已不存在的
+            <code>LOG_DEBUGF</code>（<code>C3861</code>）、还完整实现了
+            <code>ImageUndistorter</code> 全部成员函数（链接必然 <code>LNK2005</code>）</td>
+        <td>实测 6 个 error，构建必然失败；29 个文件里 22 个与 CAPP 字节相同，
+            纯重复维护负担；却容易被误当作「另一个可用工程」</td>
+        <td><span class="badge b-ok">✅ 已执行</span>
+            <code>Undistortion_raw.cpp</code> 已归档到 <code>reference/</code>（附 README），
+            注释已改指新位置，<code>CPPAPP/</code> 已整目录删除；
+            重建 3 目标成功、回归比对 0 差异（详见 §2.1.1）</td></tr>
+    <tr><td>P3</td><td><code>Undistortion.cpp</code> 157–159、184–186 行</td>
+        <td>每次 <code>infer()</code> 都对 2097 万像素做 2 次 <code>min_element</code> +
+            2 次 <code>max_element</code>，结果只用于 <code>LOG_DEBUG</code></td>
+        <td><b>13.47 ms / 21.1%</b> 的纯开销（详见 §6.3）</td>
+        <td>用 <code>#ifdef UNDISTORTION_ENABLE_DEBUG_SCAN</code> 包起来，Release 不定义</td></tr>
+    <tr><td>P4</td><td><code>Undistortion.cpp</code> 274–275、290</td>
+        <td><code>tempBuffer_</code>(80 MiB)、<code>outputBuffer_</code>(20 MiB)，
+            <code>outputBuffer_</code> <b>从未被读写</b>；
+            <code>uPoints_/vPoints_/weights_</code>（各 320 MiB）在
+            <code>precomputeIndices()</code> 之后<b>再也不被访问</b></td>
+        <td>常驻内存 1780 MiB，其中 <b>980 MiB 是死内存</b>；
+            且大工作集把 L3 彻底挤爆</td>
+        <td><code>precomputeIndices()</code> 末尾
+            <code>std::vector&lt;float&gt;().swap(uPoints_)</code> 等；
+            删除 <code>outputBuffer_</code>。可省 980 MiB（-55%）</td></tr>
+    <tr><td>P5</td><td><code>Undistortion.cpp</code> 589–613</td>
+        <td><code>__FMA__</code> 被 CMake 强制定义，<code>detectCPUFeatures()</code>
+            因此<b>无条件</b>把 <code>useFMA_</code> 置为 <code>true</code>，
+            不再做运行时 CPUID 检查；而 <code>/arch:AVX2</code> 下 FMA 指令确实会被生成</td>
+        <td>在不支持 FMA 的老 CPU 上会触发非法指令（SIGILL）。
+            ARM/虚拟化/老 Xeon 场景需要注意</td>
+        <td>改为「编译期允许 + 运行时 CPUID 确认后分派」，
+            或提供一份不带 <code>-mfma</code> 的回退二进制</td></tr>
+    <tr><td>P6</td><td><code>Undistortion.cpp</code> 419、459</td>
+        <td><code>precomputeIndices() noexcept</code> 内部 <code>throw std::bad_alloc()</code></td>
+        <td>MSVC C4297 警告；实际触发即 <code>std::terminate</code></td>
+        <td>改为返回 <code>ErrorCode</code>，或去掉 <code>noexcept</code></td></tr>
+    <tr><td>P7</td><td><code>Undistortion.cpp</code> 1176–1183</td>
+        <td>列主序→行主序转换按 <code>for col { for row }</code> 逐元素写入</td>
+        <td>单次 <code>setConfig()</code> 需 <b>3.82 s</b>（12 个矩阵共 960 MiB 的转置）</td>
+        <td>分块（64×64 tile）转置，或用离线工具把 .bin 预转成行主序 → 秒级降到 0.3 s 内</td></tr>
+    <tr><td>P8</td><td><code>CSharpApp/UndistortionProcessor.cs</code></td>
+        <td>每帧 <code>GetArray</code> + <code>GCHandle.Alloc</code> +
+            <code>SetArray</code>，输出 <code>byte[]</code> 每帧新分配 21 MB</td>
+        <td>约 <b>4–6 ms/帧</b> 的额外拷贝 + Gen2 GC 压力（相对 63.8 ms 内核约 7–9%）</td>
+        <td>改用 <code>Mat.DataPointer</code> 直接取指针（零拷贝 Pin），
+            复用预分配的输出缓冲；参考 <code>INFER/deploy/csharp</code> 的
+            <code>ImageInterop.WithLocked24bpp</code> + 两段式 free 模式</td></tr>
+    <tr><td>P9</td><td><code>CAPP/document/*.md</code></td>
+        <td>10 份历史文档为 GBK 编码，UTF-8 工具链下全是乱码</td>
+        <td>可读性受损</td>
+        <td>批量转 UTF-8；本文与新文档统一 UTF-8</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s3">3. 去畸变算法方案分析</h2>
+
+<h3 id="s3-1">3.1 算法本质：预计算 4-tap 双线性 LUT 重映射</h3>
+
+<p>
+这套实现<b>不含任何相机内参或畸变模型</b>。它把「去畸变」完全<b>离屏预计算</b>成
+12 张与目标图同尺寸的浮点表，运行时只做一次「按表取 4 点 + 加权求和 + 量化」。
+所以它是一个<strong>定点化的查表重映射（LUT remap with fixed 4-tap bilinear）</strong>，
+而不是传统意义上的「按畸变公式反解坐标」。
+</p>
+
+<div class="card">
+<table>
+  <thead><tr><th>表</th><th>文件</th><th>含义</th><th>实测取值范围</th></tr></thead>
+  <tbody>
+    <tr><td>U 坐标</td><td><code>U_1..U_4.bin</code></td>
+        <td>4 个插值点的<b>源 x 坐标（已被截断为整数）</b></td>
+        <td>0 … 5119（<code>trunc()</code> 后存成 float）</td></tr>
+    <tr><td>V 坐标</td><td><code>V_1..V_4.bin</code></td>
+        <td>4 个插值点的<b>源 y 坐标（已被截断为整数）</b></td>
+        <td>0 … 4095</td></tr>
+    <tr><td>权重</td><td><code>A1..A4.bin</code></td>
+        <td>4 个点的<b>双线性权重</b></td>
+        <td>各 ∈ [0, 1]，4 者之和 = 1 ± 5.2×10⁻⁸</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note">
+<b>关键结构事实（本次实测得出，直接决定 GPU 方案的形态）：</b>
+<ol style="margin:6px 0 0 0">
+  <li><b>U/V 只存整数部分，小数部分完全在 A 里</b>。
+      例如输出像素 (x=100, y=2000) 处 <code>u=(84,85,84,85)</code>、
+      <code>v=(2000,2000,2001,2001)</code>、
+      <code>a=(0.324829, 0.000094, 0.674882, 0.000195)</code>——
+      等效采样点是 (84.0003, 2000.675)。
+      因此 <b>A 无法由 U/V 推出</b>，但它本身是秩 1 的：
+      <code>fu = a₁+a₃</code>、<code>fv = a₂+a₃</code>，再乘出 4 个权重。</li>
+  <li><b>4 个 tap 的几何关系是固定的</b>：
+      tap0=(u₀,v₀)、tap1=(u₀+1,v₀)、tap2=(u₀,v₀+1)、tap3=(u₀+1,v₀+1)。
+      在 111,596 个抽样有效像素上<b>零违例</b>。
+      → 4 张索引表可压缩成 1 张基址表 + 3 次 <code>+1 / +W / +W+1</code>。</li>
+  <li><b>位移很小且几乎只沿 x</b>：|Δu| 均值 6.64 px（p99 = 25，max = 30）；
+      |Δv| 均值 4.78 px（p99 = 19，max = 23）；
+      沿 x 的导数 |du/dx| 均值 1.0089（p99 = 1.0，max = 2），
+      沿 y 的导数 |dv/dy| 均值 0.0028（p99 = 0，max = 1）。
+      → 相邻输出像素读取相邻源地址，<b>访存天然近似合并（coalesced）</b>，
+        这也是后面 GPU 能跑到 ~86% 带宽上限的原因。</li>
+</ol>
+</div>
+
+<h3 id="s3-2">3.2 权重矩阵的数据格式（12 × 80 MiB）</h3>
+
+<table>
+  <thead><tr><th>项</th><th>值</th></tr></thead>
+  <tbody>
+    <tr><td>文件数 / 单个大小</td><td>12 个；各 83,886,080 B（= 5120 × 4096 × 4 B），合计 <b>960 MiB</b></td></tr>
+    <tr><td>元素类型</td><td><code>float32</code>，非压缩、无头部、无 magic</td></tr>
+    <tr><td>内存序</td><td><b>列主序</b>（file[col × H + row]），运行时转成行主序
+        <code>rowMajor[row × W + col]</code>。<br>
+        <span class="small">已双向验证：把 4 种可能的 (C/F 序 × (H,W)/(W,H)) 组合都试了，
+        只有「列主序 + W=5120,H=4096」得到近恒等映射（其余组合平均位移 1741 px，明显是转置错的）。</span></td></tr>
+    <tr><td>校验</td><td><code>validateMatrixFiles()</code> 只检查存在性与字节数是否等于
+        <code>W×H×4</code>；不检查数值合理性</td></tr>
+  </tbody>
+</table>
+
+<h3 id="s3-3">3.3 执行流水线与伪代码</h3>
+
+<p><code>infer()</code> 共 5 个阶段（下表阶段名与 §6.3 的计时口径一一对应）：</p>
+
+<table>
+  <thead><tr><th>#</th><th>阶段</th><th>代码位置</th><th>做什么</th><th>访存量（每图）</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><code>cvt_in</code></td><td><code>std::copy</code> 到 <code>inputF_</code></td>
+        <td>2097 万个 <code>uint8</code> → <code>float32</code>，并把哑像素位置 <code>[N]</code> 置 0</td>
+        <td>读 21 MB + 写 84 MB</td></tr>
+    <tr><td>2</td><td><code>scan_in</code></td><td><code>min_element</code>/<code>max_element</code></td>
+        <td><b>纯调试</b>：统计输入值域，只写 DEBUG 日志</td><td>读 168 MB（两趟）</td></tr>
+    <tr><td>3</td><td><code>gather</code></td><td><code>simdUndistortAVX2_FMA()</code></td>
+        <td>8 像素并行：4×<code>_mm256_i32gather_ps</code> + 3×<code>_mm256_fmadd_ps</code> → <code>tempBuffer_</code></td>
+        <td>读 4×84 MB（索引）+ 4×84 MB（权重）+ 随机读 ~336 MB + 写 84 MB</td></tr>
+    <tr><td>4</td><td><code>quantize</code></td><td><code>convertFloatToByteAVX2()</code></td>
+        <td><code>max(0) → min(255) → +0.5 → cvttps(截断)</code> → <code>uint8</code></td>
+        <td>读 84 MB + 写 21 MB</td></tr>
+    <tr><td>5</td><td><code>scan_out</code></td><td><code>min_element</code>/<code>max_element</code></td>
+        <td><b>纯调试</b>：统计输出值域</td><td>读 42 MB（两趟）</td></tr>
+  </tbody>
+</table>
+
+<pre><span class="c">// ——— 预计算（setConfig，一次性，3.82 s）——————————————————</span>
+<span class="k">for</span> (v = 0; v &lt; H; ++v) <span class="k">for</span> (u = 0; u &lt; W; ++u) {
+    idx = v*W + u;
+    valid0 = u0&gt;=1 &amp;&amp; v0&gt;=1 &amp;&amp; u0&lt;W &amp;&amp; v0&lt;H;       <span class="c">// 4 个点各自判断</span>
+    ...
+    allValid = valid0 &amp;&amp; valid1 &amp;&amp; valid2 &amp;&amp; valid3;   <span class="c">// ★ “全有或全无”</span>
+    sourceIndex0_[idx] = allValid ? v0*W + u0 : <b>N</b>;   <span class="c">// 越界 → 指向哑像素 N</span>
+    ...  同理 1/2/3
+    weight0_[idx] = A1[idx];  ... weight3_[idx] = A4[idx];   <span class="c">// 权重照抄，不清零</span>
+}
+
+<span class="c">// ——— 推理（infer，63.82 ms）———————————————————————————</span>
+inputF_[0..N-1] = (float)input[0..N-1];  inputF_[N] = 0.0f;
+<span class="k">for</span> (i = 0; i &lt;= N-8; i += 8) {                    <span class="c">// AVX2, 8 px/迭代</span>
+    s0..s3 = gather(inputF, idx0..idx3);           <span class="c">// 4 次 vpgatherdd</span>
+    w0..w3 = loadu(weight0..3);
+    r = fmadd(s0,w0, fmadd(s1,w1, fmadd(s2,w2, mul(s3,w3))));   <span class="c">// ★ FMA 链，一次舍入</span>
+    tempBuffer_[i..i+7] = r;
+}
+output[i] = (uint8)trunc( clamp(tempBuffer_[i], 0, 255) + 0.5f );   <span class="c">// ★ 不是 round()</span></pre>
+
+<h3 id="s3-4">3.4 边界语义：全有或全无</h3>
+
+<div class="card">
+<dl class="kv">
+  <dt>合法条件</dt>
+  <dd>4 个插值点必须<b>全部</b>满足 <code>u ≥ 1 且 v ≥ 1 且 u &lt; W 且 v &lt; H</code>。
+      注意下界是 <b>1 而不是 0</b>，所以第 0 行/第 0 列<b>永远不可能</b>参与插值。</dd>
+  <dt>越界处理</dt>
+  <dd>只要有一个点越界，4 个索引<b>全部</b>改指向哑像素 <code>N</code>（值为 0）。
+      <b>权重不清零</b>——所以结果是 <code>0 × Σw = 0</code>，即输出纯黑。</dd>
+  <dt>实测比例</dt>
+  <dd><b>350,805 / 20,971,520 = 1.6728%</b> 的像素因此恒为 0（黑边）。
+      这个数字由 <b>4096×5120 三个独立路径</b>（C++ 库日志、
+      测试内复刻实现统计、NumPy 参考实现统计）得到，完全一致。</dd>
+  <dt>为什么重要</dt>
+  <dd>任何 GPU 复刻都必须<b>逐位复现</b>这一语义。它等价于
+      「把 <code>[N, N+4)</code> 这 4 个位置全部填 0，并让越界像素的索引落进这段零区」，
+      从而在 kernel 里<b>不需要任何分支或 mask</b>。</dd>
+</dl>
+</div>
+
+<h3 id="s3-5">3.5 数值语义：clamp → +0.5 → trunc 与 FMA 链</h3>
+
+<table>
+  <thead><tr><th>环节</th><th>精确语义</th><th>常见错误写法</th><th>差异量级</th></tr></thead>
+  <tbody>
+    <tr><td>加权求和</td>
+        <td><code>fma(s0,w0, fma(s1,w1, fma(s2,w2, mul(s3,w3))))</code><br>
+            只做 <b>1 次</b> 舍入（最后一次），中间结果全精度</td>
+        <td><code>s0*w0 + s1*w1 + s2*w2 + s3*w3</code>（4 次舍入）</td>
+        <td>CPU 上实测差 <b>114 / 20,971,520 = 5.44×10⁻⁶</b> 像素，最大 ±1 LSB</td></tr>
+    <tr><td>饱和</td><td><code>max(0) → min(255)</code>，<b>先</b>饱和</td>
+        <td>先 +0.5 再饱和（254.7 会变 255）</td><td>仅对 &gt;254.5 的像素有差</td></tr>
+    <tr><td>量化</td><td><code>trunc(v + 0.5f)</code>（Lua 式 round-half-up）</td>
+        <td><code>cvRound()</code>（banker's rounding，0.5 → 0）<br>
+            TRT 的 <code>Round</code>=half-away-from-zero（0.0+0.5=0.5 → <b>1</b>，错）</td>
+        <td>若用 <code>cvRound</code>，<b>所有恰好落在 x.5 的像素都会差 1</b></td></tr>
+  </tbody>
+</table>
+
+<div class="warnbox">
+<b>这条量化语义是 GPU 方案最容易踩的坑。</b>
+TensorRT 没有「截断」模式的 Round 层，但有 <code>UnaryOperation.FLOOR</code>。
+对非负值有 <code>trunc(v + 0.5) ≡ floor(v + 0.5)</code>，
+所以正确写法是 <code>Clip(0,255) → +0.5 → Floor → Cast(uint8)</code>。
+本次 TRT 原型就是按这个写的，结果与 CPU 产物差异 5.59×10⁻⁶（最大 ±1），见 UNDIST-002。
+</div>
+
+<h3 id="s3-6">3.6 为什么不能用 <code>cv::remap</code> / 纹理采样替代</h3>
+
+<p>
+直觉上「4 点双线性」就是 <code>cv::remap(..., INTER_LINEAR)</code> 或 GPU 纹理采样的
+<code>grid_sample</code>。但两者都<b>不能</b>复刻本算法：
+</p>
+
+<table>
+  <thead><tr><th>替代方案</th><th>为什么不行</th><th>量化证据</th></tr></thead>
+  <tbody>
+    <tr><td><code>cv::remap INTER_LINEAR</code></td>
+        <td>① 它从 (u,v) 的<b>小数坐标</b>现算权重，而本算法的分数部分只存在 A 里、
+            U/V 已被截断；<br>
+            ② 它的边界策略是 <code>BORDER_REPLICATE/CONSTANT</code>，不是「全有或全无」；<br>
+            ③ 它按 <code>floor</code> 取左下角，本算法要求 <code>u ≥ 1</code> 的额外排除</td>
+        <td>需要重新生成 map1/map2（2×84 MB 浮点），且 4 个特殊语义都得额外 mask</td></tr>
+    <tr><td>GPU 纹理采样（<code>tex2D</code> bilinear）</td>
+        <td>硬件插值单元的权重只有 <b>8 bit 小数精度</b></td>
+        <td>把 A 权重量化到 1/256 网格后，<b>平均误差 0.991 LSB、最大 1.988 LSB</b>
+            → 会有约 30–50% 的像素差 1–2</td></tr>
+    <tr><td><code>torch.nn.functional.grid_sample</code></td>
+        <td>同样受硬/软插值精度限制；且 <code>align_corners</code> 与坐标系定义又多一层歧义</td>
+        <td>同上量级</td></tr>
+    <tr><td>把权重降到 fp16</td>
+        <td>fp16 尾数 11 bit，权重误差 ~5×10⁻⁴，累计到 0–255 值域后跨过 .5 边界的概率不可忽略</td>
+        <td>实测（200 万像素抽样）：<b>6.81%</b> 的像素差 1，
+            累加值最大绝对误差 0.317</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+结论：<b>必须自己实现 4-tap gather + fp32 加权 + floor 量化</b>。
+好消息是这正好可以用 TensorRT 的原生算子拼出来（<code>GatherMode.ELEMENT</code>），
+不需要写 CUDA kernel；坏消息是这么做就「表带宽受限」（见 UNDIST-002 §7）。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s4">4. 跑通流程记录</h2>
+
+<h3>4.1 环境</h3>
+<div class="two">
+<table>
+  <thead><tr><th>项</th><th>值</th></tr></thead>
+  <tbody>
+    <tr><td>操作系统</td><td>Windows 11 10.0.26200</td></tr>
+    <tr><td>CPU</td><td>Intel Core Ultra 7 255HX<br>20 核 / 20 逻辑核，基频 2.40 GHz</td></tr>
+    <tr><td>内存</td><td>31.4 GB（测试时可用 10.3 GB）</td></tr>
+    <tr><td>GPU</td><td>NVIDIA GeForce RTX 5060 Laptop GPU<br>8 GiB / sm_120 / 26 SM / 驱动 581.57</td></tr>
+    <tr><td>编译器</td><td>MSVC 19.44.35219.0（VS2022 17.14.19）</td></tr>
+    <tr><td>CMake</td><td>4.2.0-rc1</td></tr>
+    <tr><td>OpenCV</td><td>4.12.0（运行时）；分析脚本用 4.13.0</td></tr>
+    <tr><td>CUDA / TensorRT</td><td>12.8 / 10.14.1.48</td></tr>
+  </tbody>
+</table>
+
+<table>
+  <thead><tr><th>输入/输出</th><th>规格</th></tr></thead>
+  <tbody>
+    <tr><td>输入图</td><td>40 张 BMP，5120×4096，8 bit 灰度，20,972,598 B/张</td></tr>
+    <tr><td>命名</td><td>PIC_1_1..10、PIC_2_1..10、PIC_3_1..10、STEP_1_1..10</td></tr>
+    <tr><td>矩阵</td><td><code>botong25/</code> 12 × 83,886,080 B</td></tr>
+    <tr><td>输出</td><td><code>demo/output0/</code> 40 张同尺寸 BMP，共 818,931,822 B（0.781 GB）</td></tr>
+    <tr><td>像素总数</td><td>838,860,800（40 × 20,971,520）</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>4.2 构建（Release）</h3>
+
+<p>为不污染库源码、同时拿到可审计的阶段耗时，新增了一个独立可执行体
+<code>CAPP/test/bench_undistortion.cpp</code>（873 行），并在
+<code>CAPP/CMakeLists.txt</code> 里加了一个 <code>bench_undistortion</code> 目标。
+<b>库的 4 个源文件一行未改。</b></p>
+
+<pre><span class="c">:: 一键构建（脚本已处理 NO_PROXY 坑）</span>
+tools\build_release.bat
+
+<span class="c">:: 产物</span>
+CAPP\build\bin\Undistortion.dll          114,688 B
+CAPP\build\bin\test_undistortion.exe     164,352 B
+CAPP\build\bin\bench_undistortion.exe    197,120 B</pre>
+
+<p>harness 的设计要点（这是「用复刻实现做阶段计时」而非改库插桩的原因）：</p>
+<ul>
+  <li><code>--mode production</code>：调用正式 <code>ImageUndistorter::infer()</code>，
+      产出 <code>demo/output0</code> 并统计 read / copy / infer / write / e2e。</li>
+  <li><code>--mode replica</code>：在测试程序里<b>按库的语义逐行复刻</b>流水线，
+      给出 cvt_in / scan_in / gather / quantize / scan_out 分阶段耗时，
+      同时把产物与 production 产物<b>逐字节比对</b>——只有比对为 0 差异，
+      这些阶段耗时才有资格代表正式实现。</li>
+  <li>额外能力：<code>--log-level</code>、<code>--reps/--warmup</code>、
+      FMA-vs-mul+add 敏感性比对、多线程 gather+quant 扩展性扫描。</li>
+</ul>
+
+<h3>4.3 实跑命令</h3>
+<pre>set PATH=E:\3rdparty\opencv\build\x64\vc16\bin;%PATH%
+
+CAPP\build\bin\bench_undistortion.exe --mode both --reps 8 --warmup 2 ^
+    --json document\data\release_bench.json ^
+    --csv  document\data\release_bench_per_image.csv</pre>
+
+<h3>4.4 产物人工确认</h3>
+
+<figure>
+  <img src="data/preview/raw_vs_undistorted.png" alt="raw vs undistorted">
+  <figcaption>左：<code>demo/raw</code> 原图；右：<code>demo/output0</code> 去畸变结果（按 0.22 缩放拼图）。
+  几何朝向一致、无转置/旋转错误；可见细微的缩放/平移，以及右下图右侧的黑边（越界像素 1.67%）。</figcaption>
+</figure>
+
+<figure>
+  <img src="data/preview/crop_1to1.png" alt="1:1 crop">
+  <figcaption>PIC_1_1 在 (x=2000, y=1600) 的 700×700 1:1 裁剪对比。
+  特征位置基本对齐、仅有几像素级位移，插入的走线保持锐利且无锯齿倍增
+  ——说明 4-tap 双线性插值被正确执行，没有退化成最近邻。</figcaption>
+</figure>
+
+<!-- ============================================================ -->
+<h2 id="s5">5. 一致性验证</h2>
+
+<p>三个<b>互相独立</b>的实现互相校验，用于证明「算法语义已被完全掌握」——这是后续做 TRT 化的前提。</p>
+
+<table>
+  <thead>
+    <tr><th>实现</th><th>与谁比</th><th>比对像素数</th><th>差异像素</th><th>比率</th><th>最大差</th><th>结论</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>① 测试内复刻实现</b><br><span class="small">bench_undistortion.cpp 的 ReplicaUndistorter</span></td>
+      <td><code>ImageUndistorter::infer</code>（CAPP Release 产物）</td>
+      <td class="num">838,860,800</td><td class="num">0</td><td class="num">0</td><td class="num">0</td>
+      <td><span class="badge b-ok">bit-exact</span></td>
+    </tr>
+    <tr>
+      <td><b>② NumPy 独立实现</b><br><span class="small">tools/reference_check.py（float32，无 FMA）</span></td>
+      <td>① 的产物（同一批 2 张图）</td>
+      <td class="num">41,943,040</td><td class="num">253</td><td class="num">6.03×10⁻⁶</td><td class="num">1</td>
+      <td><span class="badge b-info">仅差末位</span></td>
+    </tr>
+    <tr>
+      <td><b>③ 同一复刻实现的 mul+add 版本</b><br><span class="small">显式 <code>_mm256_mul_ps</code> + <code>_add_ps</code></span></td>
+      <td>① 的 FMA 链版本</td>
+      <td class="num">20,971,520</td><td class="num">114</td><td class="num">5.44×10⁻⁶</td><td class="num">1</td>
+      <td><span class="badge b-info">仅差末位</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note">
+<b>如何解读这三个数字：</b>
+② 和 ③ 的差异量级一致（6.0×10⁻⁶ vs 5.4×10⁻⁶），且都是「最大差 1」，
+说明<b>唯一的语义分歧点就是 FMA 融合与否</b>：FMA 只做一次舍入，mul+add 做四次。
+没有任何「结构性」差异（比如坐标取反、边界策略、量化方式）存在——否则差异会是成千上万甚至全图。
+<br><br>
+这也给出了一个重要的工程结论：<b>「结果一致」在工程上应当被定义为
+「差异像素比率 ≤ 1×10⁻⁵ 且最大差 ≤ 1 LSB」</b>，
+而不是追求位级完全相等——因为连 CPU 自己的两种等价写法都不位级相等。
+<br><br>
+<b>补充（2026-10-26 追加）：</b>GPU(TRT) 侧已按<b>双域逐位置</b>做过同样的审计 ——
+在 62,914,560 个位置上，<b>量化前的浮点域 |Δ| &gt; 0.001 灰度 的位置数为 0</b>
+（最大仅 6.104×10⁻⁵），灰度域差异率 6.088×10⁻⁶、最大差 1。
+即「每个位置差异 &lt; 0.001 灰度」这一要求<b>已严格满足</b>。
+详见配套文档 <b>UNDIST-002 §3.2</b>。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s6">6. Release 耗时统计</h2>
+
+<h3>6.1 测量口径（重要）</h3>
+<div class="card">
+<dl class="kv">
+  <dt>只取 Release</dt>
+  <dd>MSVC <code>/O2 /arch:AVX2 /MD</code>，未附加任何 Profiler / 内存检查工具。Debug 数据全部丢弃。</dd>
+  <dt>样本</dt><dd>40 张不同图像 × 每张 2 次 warmup + 8 次测量，逐图取<b>中位数</b>，
+      再对 40 个中位数做跨图统计。「mean」是 40 个中位数的平均。</dd>
+  <dt>计时器</dt><dd><code>std::chrono::steady_clock</code>；<code>infer</code> 区间为
+      <code>infer()</code> 调用前后。<code>infer_lib_reported</code> 是库内
+      <code>BaseResult.processingTime</code>，两者差 &lt; 0.003 ms（自证计时无损）。</dd>
+  <dt>日志</dt><dd><code>LogLevel::WARN</code>，控制台与文件<b>全关</b>，
+      避免 I/O 干扰（INFO 级别的开销单独测过，见 §6.7）。</dd>
+  <dt>「去最大最小」列</dt><dd>沿用原 <code>test_undistortion.cpp</code> 的口径：
+      排序后去掉一个最小值和一个最大值再平均，便于与历史文档对比。</dd>
+  <dt>输入已预热</dt><dd>40 张 BMP 在正式测量前已被 OS 页缓存（read 从 62 ms 降到 22.7 ms）。</dd>
+</div>
+
+<h3>6.2 端到端与外层阶段（ms，n = 40）</h3>
+<table>
+  <thead><tr>
+    <th>阶段</th><th class="num">mean</th><th class="num">median</th><th class="num">min</th>
+    <th class="num">max</th><th class="num">p90</th><th class="num">p99</th>
+    <th class="num">σ</th><th class="num">去最大最小</th><th class="num">占 e2e</th>
+  </tr></thead>
+  <tbody>
+    <tr><td><code>read</code> — <code>cv::imread</code> 灰度 BMP 21 MB</td>
+        <td class="num">22.725</td><td class="num">22.609</td><td class="num">21.694</td>
+        <td class="num">26.486</td><td class="num">23.383</td><td class="num">25.460</td>
+        <td class="num">0.780</td><td class="num">22.653</td><td class="num">22.1%</td></tr>
+    <tr><td><code>copy</code> — <code>memcpy</code> 到输入缓冲</td>
+        <td class="num">1.099</td><td class="num">1.079</td><td class="num">0.909</td>
+        <td class="num">1.467</td><td class="num">1.270</td><td class="num">1.438</td>
+        <td class="num">0.130</td><td class="num">1.094</td><td class="num">1.1%</td></tr>
+    <tr style="background:#e8f0fd"><td><b><code>infer</code> — 算法核心</b></td>
+        <td class="num"><b>63.817</b></td><td class="num"><b>64.628</b></td><td class="num"><b>58.002</b></td>
+        <td class="num"><b>72.231</b></td><td class="num"><b>66.679</b></td><td class="num"><b>71.215</b></td>
+        <td class="num"><b>3.045</b></td><td class="num"><b>63.749</b></td><td class="num"><b>61.9%</b></td></tr>
+    <tr><td><code>write</code> — <code>cv::imwrite</code> BMP 21 MB</td>
+        <td class="num">15.415</td><td class="num">15.102</td><td class="num">13.916</td>
+        <td class="num">19.286</td><td class="num">16.890</td><td class="num">19.233</td>
+        <td class="num">1.299</td><td class="num">15.353</td><td class="num">15.0%</td></tr>
+    <tr style="background:#f3f7fc"><td><b>e2e — 读+拷贝+去畸变+写</b></td>
+        <td class="num"><b>103.056</b></td><td class="num"><b>103.315</b></td><td class="num"><b>96.330</b></td>
+        <td class="num"><b>112.996</b></td><td class="num"><b>107.646</b></td><td class="num"><b>111.311</b></td>
+        <td class="num"><b>3.729</b></td><td class="num"><b>102.972</b></td><td class="num">100%</td></tr>
+  </tbody>
+</table>
+
+<p class="small">说明：<code>infer_lib_reported</code> 与 <code>infer</code> 完全重合（均值差 0.002 ms），
+说明 <code>BaseResult.processingTime</code> 的统计口径可以直接作为对外上报的耗时字段，
+C# 侧不需要自己再包一层 Stopwatch 来测内核部分。</p>
+
+<h3 id="s6-2-1">6.2.1 端到端 103.06 ms 到底是什么（以及为什么它会把加速比压到 2.5×）</h3>
+
+<div class="bluebox">
+<b>一句话：103.06 ms 里的 38.1% 与去畸变算法毫无关系，它是"用磁盘 BMP 模拟相机"的测试脚手架代价。</b>
+把这个代价留在链路里，算法再快 70 倍，端到端上限也只有 <b>2.6×</b>（Amdahl 定律）。
+</div>
+
+<h4>(1) 精确构成（4 段等号成立）</h4>
+<table>
+  <thead><tr><th>阶段</th><th class="num">ms</th><th class="num">占 e2e</th><th>性质</th><th>换成 GPU 后还在不在</th></tr></thead>
+  <tbody>
+    <tr><td><code>read</code> — <code>cv::imread</code> 灰度 BMP</td>
+        <td class="num">22.725</td><td class="num">22.0%</td>
+        <td><b>与算法无关</b>（BMP 解码 ~72% + 读盘 ~28%）</td>
+        <td><span class="badge b-bad">在</span>（除非上游直接给内存/显存 buffer）</td></tr>
+    <tr><td><code>copy</code> — <code>memcpy</code> 到输入缓冲</td>
+        <td class="num">1.099</td><td class="num">1.1%</td>
+        <td><b>纯浪费</b>：<code>infer()</code> 收 <code>const uint8_t*</code>，
+            本可以直接传 <code>Mat::data</code></td>
+        <td><span class="badge b-warn">被 H2D 取代</span></td></tr>
+    <tr style="background:#e8f0fd"><td><code>infer</code> — 算法核心</td>
+        <td class="num"><b>63.817</b></td><td class="num"><b>61.9%</b></td>
+        <td><b>唯一真正的算法开销</b></td>
+        <td><span class="badge b-ok">被替换</span> → 0.92～2.56 ms</td></tr>
+    <tr><td><code>write</code> — <code>cv::imwrite</code> BMP</td>
+        <td class="num">15.415</td><td class="num">15.0%</td>
+        <td><b>与算法无关</b>（几乎全是 BMP 编码；页缓存下实际落盘≈0）</td>
+        <td><span class="badge b-bad">在</span>（除非下游直接消费内存/显存 buffer）</td></tr>
+    <tr style="background:#f3f7fc"><td><b>e2e 合计</b></td>
+        <td class="num"><b>103.056</b></td><td class="num">100%</td>
+        <td colspan="2"><b>其中算法 61.9%，非算法 38.1%（39.24 ms）</b></td></tr>
+  </tbody>
+</table>
+
+<h4>(2) 非算法那 38.1% 又是什么（<code>tools/io_decompose.py</code> 实测）</h4>
+<table>
+  <thead><tr><th>子项</th><th class="num">p50</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>纯文件读（<code>open().read()</code>，页缓存热）</td><td class="num">7.05 ms</td>
+        <td>20.97 MB / 7.05 ms ≈ 2.97 GB/s —— 就是一次内存带宽级的搬运</td></tr>
+    <tr><td>纯 BMP 解码（<code>imdecode</code>，数据已在内存）</td><td class="num">18.12 ms</td>
+        <td>BMP 本是无压缩，这 18 ms 全是「分配 21 MB + 逐行翻转拷贝」的代价</td></tr>
+    <tr><td><code>imread</code> 全程</td><td class="num">31.38 ms</td>
+        <td>≈ 7.05（读）+ 18.12（解码）+ 6.2（额外缓冲/分配）</td></tr>
+    <tr><td>纯 BMP 编码（<code>imencode</code>）</td><td class="num">14.41 ms</td>
+        <td>写 BMP 也几乎没有压缩成本，同样是一次 21 MB 搬运</td></tr>
+    <tr><td><code>imwrite</code> 全程</td><td class="num">13.88 ms</td>
+        <td>≈ 编码本身；页缓存下真正落盘接近 0 ms</td></tr>
+  </tbody>
+</table>
+<p class="small">
+注：此表用 Python + OpenCV 4.13 测，绝对值比 C++ bench（OpenCV 4.12）略高；
+只用来看<b>比例</b>——BMP 编解码约占 read+write 的 <b>70–80%</b>，读盘/落盘只占 20–30%。
+即便把"读盘"完全优化掉（SSD、直接 mmap、raw 格式），只要还在做 BMP 编解码，
+<b>仍有 ~32 ms/帧 的纯搬运成本</b>。
+</p>
+
+<h4>(3) Amdahl：为什么"只有 2.5×"是数学必然</h4>
+<p>
+设串行部分（与算法无关、换 GPU 消不掉）= <code>T_io = 22.725 + 1.099 + 15.415 = 39.24 ms</code>，
+可加速部分 = <code>T_algo = 63.82 ms</code>。把算法加速到 <code>k</code> 倍后：
+</p>
+<pre>          T_io + T_algo            103.06
+  S(k) = ───────────────── = ────────────────────────
+          T_io + T_algo / k      39.24 + 63.82 / k
+
+  k = 1     → 1.00×      （现状）
+  k = 5     → 1.80×
+  k = 12.7  → 2.39×      （GPU pageable 5.017 ms）
+  k = 24.9  → 2.53×      （GPU pinned  2.562 ms）   ← 之前说的 2.5×
+  k = 69.4  → 2.64×      （GPU kernel-only 0.920 ms）
+  k → ∞     → <b>2.63×</b>  ← <b>Amdahl 天花板：算法归零也只能快 2.6 倍</b></pre>
+
+<div class="card">
+<p style="margin-top:0">
+所以那句「相对现状 103.06 ms 只有 2.5×」的正确理解是：
+</p>
+<ul style="margin:6px 0 0">
+  <li><b>2.53× 已经是 Amdahl 天花板的 96%</b>（2.53 / 2.63）。
+      换句话说，<b>再优化算法一分钱都不值</b>——剩下的 2.4 ms 差距全在"算法本身还没到 0"上，
+      而不是"GPU 不够快"。</li>
+  <li><b>瓶颈已经从"算"变成了"搬"</b>：39.24 ms 的非算法开销里，
+      有 ~32 ms 是把 21 MB 图像在 BMP 编解码器里搬两趟。
+      在这个形态下，<b>优化 BMP 路径的收益大于优化去畸变算法</b>。</li>
+  <li><b>但 103.06 ms 不该被当成部署基线</b>——真实产线上相机给的是内存里的 buffer
+      （甚至直接在显存），输出直接喂给下一个节点，
+      <code>imread</code>/<code>imwrite</code> 根本不存在。
+      那时正确的基线是 <b>63.82 ms</b>，对应 <b>24.9×</b>（pinned）或 <b>69.4×</b>（图在显存）。</li>
+</ul>
+</div>
+
+<h4>(4) 五种部署形态的加速比（同一份 GPU 能力，差别全在"要不要搬"）</h4>
+<table>
+  <thead><tr>
+    <th>形态</th><th>基线构成</th><th class="num">基线</th><th class="num">GPU 后</th>
+    <th class="num">加速</th><th>说明</th>
+  </tr></thead>
+  <tbody>
+    <tr><td><b>A</b> 只替换算法（沿用 BMP 脚手架）</td>
+        <td>39.24 I/O + 63.82 算法</td>
+        <td class="num">103.06</td><td class="num">40.70</td>
+        <td class="num"><b>2.53×</b></td>
+        <td>Amdahl 上限 2.63×。<b>就是"感觉没快多少"的那种形态</b></td></tr>
+    <tr><td><b>B</b> 去掉 BMP 编解码，改 raw / 内存直传</td>
+        <td>≈14 文件搬运 + 63.82 算法</td>
+        <td class="num">≈77.8</td><td class="num">≈16.6</td>
+        <td class="num">≈4.7×</td>
+        <td>推算：21 MB 读 + 21 MB 写按 3 GB/s ≈ 14 ms</td></tr>
+    <tr style="background:#e0f4ee"><td><b>C</b> 相机内存直传 + 结果回内存</td>
+        <td>0 + 63.82 算法</td>
+        <td class="num">63.82</td><td class="num">2.562</td>
+        <td class="num"><b>24.9×</b></td>
+        <td><b>pinned，实测</b>。最常见的可达形态</td></tr>
+    <tr><td><b>D</b> 图像不出显存（相机直采 / 前序 GPU 节点）</td>
+        <td>0 + 63.82 算法</td>
+        <td class="num">63.82</td><td class="num">0.920</td>
+        <td class="num"><b>69.4×</b></td>
+        <td>实测 kernel-only</td></tr>
+    <tr><td><b>E</b> + b=8 批处理（需 plugin）</td>
+        <td>0 + 63.82 算法</td>
+        <td class="num">63.82</td><td class="num">0.247</td>
+        <td class="num"><b>258×</b></td>
+        <td>推算（见 UNDIST-002 §6.2）</td></tr>
+  </tbody>
+</table>
+
+<div class="warnbox">
+<b>结论：</b>「2.5×」不是 GPU 方案的上限，而是<b>"把算法塞进一个 I/O 主导的链路里"</b>的上限。
+真正决定收益的是"这张图从哪来、到哪去"这一层架构决策：
+<b>同一条 0.92 ms 的 kernel，放在 A 形态里只值 2.5×，放在 D 形态里值 69.4×</b>。
+因此落地时的第一步不是调 kernel，而是先把去畸变节点挪到"图像不进解码器、不出显存"的位置。
+</div>
+
+<h3>6.3 算法核心 5 阶段拆分（ms，n = 40）</h3>
+
+<table>
+  <thead><tr>
+    <th>#</th><th>阶段</th><th class="num">mean</th><th class="num">median</th>
+    <th class="num">min</th><th class="num">max</th><th class="num">p90</th>
+    <th class="num">σ</th><th class="num">占 infer</th><th>性质</th>
+  </tr></thead>
+  <tbody>
+    <tr><td>1</td><td><code>cvt_in</code> u8→f32</td>
+        <td class="num">5.264</td><td class="num">5.199</td><td class="num">4.696</td>
+        <td class="num">6.037</td><td class="num">5.717</td><td class="num">0.340</td>
+        <td class="num">8.2%</td><td>必要</td></tr>
+    <tr style="background:#fff3f3"><td>2</td><td><code>scan_in</code> min/max 扫描</td>
+        <td class="num">10.031</td><td class="num">10.153</td><td class="num">8.595</td>
+        <td class="num">11.804</td><td class="num">10.648</td><td class="num">0.707</td>
+        <td class="num"><b>15.7%</b></td><td><span class="badge b-bad">纯调试</span></td></tr>
+    <tr style="background:#e8f0fd"><td>3</td><td><code>gather</code> 4-tap + FMA</td>
+        <td class="num"><b>35.630</b></td><td class="num"><b>36.010</b></td><td class="num"><b>32.612</b></td>
+        <td class="num"><b>36.971</b></td><td class="num"><b>36.529</b></td><td class="num"><b>1.098</b></td>
+        <td class="num"><b>55.8%</b></td><td><b>算法本体</b></td></tr>
+    <tr><td>4</td><td><code>quantize</code> clamp+round→u8</td>
+        <td class="num">7.458</td><td class="num">7.551</td><td class="num">6.127</td>
+        <td class="num">9.198</td><td class="num">7.806</td><td class="num">0.495</td>
+        <td class="num">11.7%</td><td>必要（但实现偏低效）</td></tr>
+    <tr style="background:#fff3f3"><td>5</td><td><code>scan_out</code> min/max 扫描</td>
+        <td class="num">3.441</td><td class="num">3.406</td><td class="num">2.806</td>
+        <td class="num">4.329</td><td class="num">3.835</td><td class="num">0.306</td>
+        <td class="num"><b>5.4%</b></td><td><span class="badge b-bad">纯调试</span></td></tr>
+    <tr style="background:#f3f7fc"><td>—</td><td><b>五阶段合计</b></td>
+        <td class="num"><b>61.824</b></td><td class="num"><b>62.063</b></td><td class="num"><b>56.817</b></td>
+        <td class="num"><b>65.134</b></td><td class="num"><b>64.005</b></td><td class="num"><b>1.858</b></td>
+        <td class="num"><b>96.9%</b></td><td>组合实测 = <b>61.792</b></td></tr>
+    <tr><td>—</td><td>参数校验/分支/日志判定等</td>
+        <td class="num">1.993</td><td class="num">—</td><td class="num">—</td>
+        <td class="num">—</td><td class="num">—</td><td class="num">—</td>
+        <td class="num">3.1%</td><td>可忽略</td></tr>
+  </tbody>
+</table>
+
+<div class="bar"><div class="lbl">gather（4-tap + FMA）</div>
+  <div class="track"><div class="fill" style="width:55.8%;background:#1f6feb"></div></div>
+  <div class="val">35.63 ms / 55.8%</div></div>
+<div class="bar"><div class="lbl">scan_in（调试）</div>
+  <div class="track"><div class="fill" style="width:15.7%;background:#b91c1c"></div></div>
+  <div class="val">10.03 ms / 15.7%</div></div>
+<div class="bar"><div class="lbl">quantize</div>
+  <div class="track"><div class="fill" style="width:11.7%;background:#d97706"></div></div>
+  <div class="val">7.46 ms / 11.7%</div></div>
+<div class="bar"><div class="lbl">cvt_in（u8→f32）</div>
+  <div class="track"><div class="fill" style="width:8.2%;background:#0e7490"></div></div>
+  <div class="val">5.26 ms / 8.2%</div></div>
+<div class="bar"><div class="lbl">scan_out（调试）</div>
+  <div class="track"><div class="fill" style="width:5.4%;background:#b91c1c"></div></div>
+  <div class="val">3.44 ms / 5.4%</div></div>
+<div class="bar"><div class="lbl">校验/日志/其它</div>
+  <div class="track"><div class="fill" style="width:3.1%;background:#94a3b8"></div></div>
+  <div class="val">1.99 ms / 3.1%</div></div>
+
+<div class="note">
+<b>「五阶段合计 61.824」与「组合实测 full_pipeline 61.792」只差 0.03 ms（0.05%）</b>，
+说明分阶段计时没有把缓存效应算漏（重复测量单阶段会「预热」它自己的输入），
+阶段占比可以直接拿来做优化决策。
+</div>
+
+<h3>6.4 分布特征</h3>
+<div class="two">
+<div class="card">
+  <h4 style="margin-top:0">为什么 σ 有 3.05 ms？</h4>
+  <p class="small" style="margin:0">
+  min 58.00 / max 72.23，跨度 14.2 ms。分析：
+  ① 各图内容不同 → 缓存无关的访存分布一致，但 <b>CPU 频率会在 20 个核间波动</b>
+  （本机为 20 核同构、无 E-core 调度问题，但 PL1/PL2 功耗墙会随温度漂移）；
+  ② 每张图只测 8 次、取中位数 → 对短时抖动不敏感但仍受限于采样数；
+  ③ <code>scan_in</code> 阶段是对 84 MB 的随机位置两趟扫描，受邻近核心干扰最明显。
+  真正与数据相关的变化很小（同一张图 8 次测量的离散度 &lt; 3%）。
+  </p>
+</div>
+<div class="card">
+  <h4 style="margin-top:0">吞吐换算</h4>
+  <table style="margin:0">
+    <tbody>
+      <tr><td>单张像素</td><td class="num">20,971,520</td></tr>
+      <tr><td>infer 中位</td><td class="num">64.628 ms</td></tr>
+      <tr><td>算力吞吐</td><td class="num"><b>324.5 MPix/s</b></td></tr>
+      <tr><td>帧率（仅算法）</td><td class="num"><b>15.5 张/s</b></td></tr>
+      <tr><td>帧率（含 BMP I/O）</td><td class="num"><b>9.7 张/s</b></td></tr>
+      <tr><td>有效访存（gather）</td><td class="num">≈ 30.6 GB/s</td></tr>
+    </tbody>
+  </table>
+</div>
+</div>
+
+<h3>6.5 初始化耗时：<code>setConfig()</code></h3>
+<table>
+  <thead><tr><th>子步骤</th><th class="num">耗时</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>矩阵文件校验（12 × <code>ifstream::ate</code>）</td><td class="num">&lt; 1 ms</td><td>只取文件长度</td></tr>
+    <tr><td>加载 + 列主序→行主序转置（12 × 80 MiB）</td><td class="num"><b>3,132.9 ms</b></td>
+        <td>逐元素转置，cache 严重不友好（写步长 20 KB）</td></tr>
+    <tr><td><code>precomputeIndices()</code>（2097 万像素 × 4 tap）</td><td class="num"><b>291.1 ms</b></td>
+        <td>含 8 个 SoA 数组的分配与填充</td></tr>
+    <tr><td><code>detectCPUFeatures()</code> + <code>allocateBuffers()</code></td><td class="num">≈ 400 ms</td>
+        <td>三次大块分配（含 84 MiB <code>inputF_</code> 的零初始化）</td></tr>
+    <tr style="background:#f3f7fc"><td><b>setConfig 合计</b></td><td class="num"><b>3,824.8 ms</b></td>
+        <td><b>约 3.8 秒的冷启动</b>——服务化部署必须考虑</td></tr>
+  </tbody>
+</table>
+
+<div class="warnbox">
+3.8 秒的初始化对「按需启动的检测服务」是不可接受的。两条低成本改法：
+① 离线把 12 个 .bin 预转成行主序（转置只在生成矩阵时做一次），可去掉 3.1 s；
+② 把 <code>sourceIndex*/weight*</code> 8 个数组也离线落盘成「已是 SoA 布局」的 5 张表，
+   再省 0.29 s。合计可把冷启动压到 <b>&lt; 0.6 s</b>（只剩 mmap 读 640 MiB）。
+</div>
+
+<h3>6.6 运行时内存占用</h3>
+<table>
+  <thead><tr><th>缓冲区</th><th class="num">大小</th><th>是否常驻</th><th>是否必要</th></tr></thead>
+  <tbody>
+    <tr><td><code>uPoints_</code></td><td class="num">320 MiB</td><td>是</td>
+        <td><span class="badge b-bad">建完索引后即死</span></td></tr>
+    <tr><td><code>vPoints_</code></td><td class="num">320 MiB</td><td>是</td>
+        <td><span class="badge b-bad">建完索引后即死</span></td></tr>
+    <tr><td><code>weights_</code></td><td class="num">320 MiB</td><td>是</td>
+        <td><span class="badge b-bad">建完索引后即死</span></td></tr>
+    <tr><td><code>sourceIndex0..3_</code>（4 × int32）</td><td class="num">320 MiB</td><td>是</td>
+        <td><span class="badge b-ok">必需</span></td></tr>
+    <tr><td><code>weight0..3_</code>（4 × float）</td><td class="num">320 MiB</td><td>是</td>
+        <td><span class="badge b-ok">必需</span></td></tr>
+    <tr><td><code>inputF_</code>（含 1 个哑像素）</td><td class="num">80 MiB</td><td>是</td>
+        <td><span class="badge b-ok">必需</span></td></tr>
+    <tr><td><code>tempBuffer_</code></td><td class="num">80 MiB</td><td>是</td>
+        <td><span class="badge b-warn">可与 quantize 融合后省掉</span></td></tr>
+    <tr><td><code>outputBuffer_</code></td><td class="num">20 MiB</td><td>是</td>
+        <td><span class="badge b-bad">从未被读写</span></td></tr>
+    <tr style="background:#f3f7fc"><td><b>合计常驻</b></td><td class="num"><b>1,780 MiB</b></td>
+        <td colspan="2">其中 <b>980 MiB 可立即释放（-55%）</b>；
+            再融合 quantize 还可再省 80 MiB</td></tr>
+    <tr><td>加载瞬时峰值（额外 4 × 80 MiB 临时转置缓冲）</td><td class="num">+320 MiB</td>
+        <td colspan="2">峰值约 2.1 GiB</td></tr>
+  </tbody>
+</table>
+
+<p class="small">
+顺带解释了为什么单线程 gather 只有 30.6 GB/s 的有效带宽：1680 MiB 的工作集
+（索引 320 + 权重 320 + 输入 80 + 临时 80，其余是死内存）远超 255HX 的 L3，
+每次 gather 基本都是 DRAM 命中，而 <code>vpgatherdd</code> 本身又限制了并发度。
+</p>
+
+<h3>6.7 日志开销</h3>
+<table>
+  <thead><tr><th>日志级别</th><th>样本</th><th class="num">infer mean</th><th class="num">相对 WARN</th></tr></thead>
+  <tbody>
+    <tr><td><code>WARN</code>（生产口径）</td><td>40 张 × 8 次</td><td class="num">63.817</td><td class="num">—</td></tr>
+    <tr><td><code>INFO</code>（每图 2 条）</td><td>12 张 × 6 次</td><td class="num">64.83</td><td class="num">+1.02 ms (+1.6%)</td></tr>
+  </tbody>
+</table>
+<p class="small">日志本身开销可接受。<b>真正贵的不是打日志，而是「为了让日志有内容而做的全图扫描」</b>（§6.3 的
+<code>scan_in</code>/<code>scan_out</code>，13.47 ms）。</p>
+
+<!-- ============================================================ -->
+<h2 id="s7">7. 性能瓶颈归因</h2>
+
+<h3>7.1 主瓶颈：<code>vpgatherdd</code> 的指令吞吐，而不是 DRAM 带宽</h3>
+
+<p>证据链是「多线程扩展性」实验。把「gather + quantize」按像素区间切给 N 个线程：</p>
+
+<table>
+  <thead><tr>
+    <th>线程数</th><th class="num">gather+quant 中位</th><th class="num">相对 1T 加速</th>
+    <th class="num">相对理论线性</th><th>判断</th>
+  </tr></thead>
+  <tbody>
+    <tr><td>1</td><td class="num">42.863</td><td class="num">1.00×</td><td class="num">100%</td>
+        <td>基准</td></tr>
+    <tr><td>4</td><td class="num">26.679</td><td class="num">1.61×</td><td class="num">40%</td>
+        <td>已明显偏离线性</td></tr>
+    <tr><td>8</td><td class="num">24.433</td><td class="num">1.75×</td><td class="num">22%</td>
+        <td>接近饱和</td></tr>
+    <tr><td>16</td><td class="num">24.035</td><td class="num">1.78×</td><td class="num">11%</td>
+        <td>饱和</td></tr>
+    <tr><td>20（全部物理核）</td><td class="num">22.935</td><td class="num"><b>1.81×</b></td><td class="num">9%</td>
+        <td><b>硬墙</b></td></tr>
+  </tbody>
+</table>
+
+<div class="card">
+<p style="margin-top:0"><b>为什么 20 核只有 1.81×？</b></p>
+<p>
+若是 DRAM 带宽受限，那 20 线程应能把「有效带宽」从 30.6 GB/s 拉到 ~100 GB/s
+（DDR5-6400 双通道理论上限 102.4 GB/s），也就是 3× 以上。
+实测只有 1.81×，说明瓶颈在<b>核内</b>：
+<code>vpgatherdd</code> 在 Intel 上是微码实现的，对 32-bit 元素<b>每周期只能算 1 个元素</b>，
+一个 <code>_mm256_i32gather_ps</code>（8 元素）约需 8–10 周期。
+每像素 4 次 gather → 2097 万 × 4 = 8389 万次元素收集
+≈ 8389 万周期 / 4.3 GHz ≈ <b>19.5 ms</b> 的理论下界，
+实测 gather 阶段 35.63 ms（含 DRAM 等待），单线程 42.86 ms。
+多线程并不能绕过「每核每周期 1 元素」这个限制，只能增加并行核数——所以天花板很低。
+</p>
+</div>
+
+<h3>7.2 21.1% 的时间花在只为日志服务的扫描上</h3>
+<p>
+<code>scan_in</code> 10.03 ms + <code>scan_out</code> 3.44 ms = <b>13.47 ms = 21.1%</b>。
+这些数值只被 <code>LOG_DEBUG("CORE", "Input data range: min=%.2f, max=%.2f", ...)</code> 使用，
+在 Release 生产路径上毫无意义。<b>这是全项目性价比最高的一处修改：删 4 行代码（或加个宏）省 1/5 时间。</b>
+</p>
+<p class="small">
+顺便解释一下为什么 <code>scan_in</code>（10.03 ms）是 <code>scan_out</code>（3.44 ms）的近 3 倍：
+前者扫 84 MiB 的 <code>float</code>（两趟 = 168 MiB），后者扫 20 MiB 的 <code>uint8</code>（两趟 = 40 MiB），
+比值 4.2× ≈ 时间比 2.9×（后者受更小的数据结构缓存友好度影响）。
+</p>
+
+<h3>7.3 <code>quantize</code> 的实现方式浪费了约 3–4×</h3>
+<p>
+<code>convertFloatToByteAVX2()</code> 把 8 个结果 <code>_mm256_storeu_si256</code> 到栈上
+<code>int lanes[8]</code>，再<b>逐字节</b>写 <code>output[i]…output[i+7]</code>。
+这等于把已经向量化的结果又拆成 8 次标量存储，且栈上的中转会被 L1 反复读写。
+</p>
+<pre><span class="c">// 现状（Undistortion.cpp:1095-1107）—— 8 次标量字节存储</span>
+__m256i vi = _mm256_cvttps_epi32(vf);
+int lanes[8];
+_mm256_storeu_si256((__m256i*)lanes, vi);
+output[i+0] = (uint8_t)lanes[0]; ... output[i+7] = (uint8_t)lanes[7];
+
+<span class="c">// 建议：packs 两轮 + 一次 8 字节存储（约 3-4× 提速）</span>
+__m128i lo = _mm256_castsi256_si128(vi), hi = _mm256_extracti128_si256(vi, 1);
+__m128i p16 = _mm_packs_epi32(lo, hi);              <span class="c">// 8×int32 → 8×int16</span>
+__m128i p8  = _mm_packus_epi16(p16, p16);           <span class="c">// → 8×uint8 在低 8 字节</span>
+_mm_storel_epi64((__m128i*)(output + i), p8);</pre>
+<p class="small">按 7.46 ms 降到 ~2 ms 估算，可再省 5.5 ms（8.5%）。</p>
+
+<h3>7.4 <code>cvt_in</code> 也有 3–4× 余量</h3>
+<p>
+<code>std::copy(uint8_t*, uint8_t*+N, float*)</code> 是 21 MB 读 + 84 MB 写 = 105 MB，
+实测 5.26 ms → 19.9 GB/s。若用 AVX2 一次把 8 个 <code>uint8</code>
+转成 8 个 <code>float</code>（<code>_mm256_cvtepu8_epi32</code> + <code>_mm256_cvtepi32_ps</code>），
+在 20 GB/s 的 DRAM 下界之上还能再压到 ~3 ms。
+<b>更好的做法是彻底去掉这一趟</b>——见 §8 的「u8 直接 gather」。
+</p>
+
+<h3>7.5 侧数据规模就是天花板</h3>
+<p>
+算法每处理 1 个像素，必须读 4 个 int32 索引（16 B）+ 4 个 float 权重（16 B）= <b>32 B</b>，
+再加上输入 4 B × 4 与输出 1 B。也就是说<b>每像素 ~50 B 的访存需求、与图像内容无关</b>。
+对 20.97 MPix 就是 ~1.05 GB/帧。
+单线程 63.8 ms → 16.5 GB/s；多线程天花板 1.81× → 30 GB/s。
+这就是为什么 CPU 侧无论如何优化都只能到 30–45 ms 量级，
+而 GPU 的 298 GB/s 有效带宽能把它压到 1 ms 级（见 UNDIST-002）。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="s8">8. CPU 侧优化建议（按收益排序）</h2>
+
+<table>
+  <thead><tr>
+    <th>优先级</th><th>改动</th><th>预期收益</th><th class="num">预计 infer</th>
+    <th>风险 / 备注</th>
+  </tr></thead>
+  <tbody>
+    <tr><td><span class="badge b-ok">P0</span></td>
+        <td>删掉 <code>scan_in</code>/<code>scan_out</code>（用宏包起来，Release 不编译）</td>
+        <td><b>−13.47 ms（−21.1%）</b></td>
+        <td class="num">≈ 50.4 ms</td>
+        <td>零风险：不参与任何计算。<b>建议立刻做</b></td></tr>
+    <tr><td><span class="badge b-ok">P0</span></td>
+        <td>释放 <code>uPoints_/vPoints_/weights_</code>，删除 <code>outputBuffer_</code></td>
+        <td>常驻内存 −980 MiB（−55%），L3 压力下降</td>
+        <td class="num">≈ 不变或略好</td>
+        <td>零风险：这些内存在索引建好后无任何引用</td></tr>
+    <tr><td><span class="badge b-info">P1</span></td>
+        <td>用 <code>_mm_packs/_packus/_storel</code> 重写 <code>quantize</code></td>
+        <td>−5.5 ms（−8.5%）</td>
+        <td class="num">≈ 45 ms</td>
+        <td>需注意 <code>packus</code> 对 &gt;255 已饱和，与现有 clamp 语义一致，可去掉显式 clamp</td></tr>
+    <tr><td><span class="badge b-info">P1</span></td>
+        <td>把 <code>gather+quantize</code> 融合成一个循环（借 <code>tempBuffer_</code> 回写）</td>
+        <td>省掉 84 MB 中间写 + 84 MB 回读 ≈ −4 ms</td>
+        <td class="num">≈ 41 ms</td>
+        <td>需要 8 元素做一次 pack；逻辑简单</td></tr>
+    <tr><td><span class="badge b-info">P1</span></td>
+        <td>多线程：按行切分 8–16 线程（静态分区即可）</td>
+        <td>gather+quant 1.78×</td>
+        <td class="num">≈ 30–33 ms</td>
+        <td>库要改成线程安全的（现状 <code>tempBuffer_</code> 是成员变量，必须做 per-thread 或行分区）</td></tr>
+    <tr><td><span class="badge b-warn">P2</span></td>
+        <td>不再预转 float：直接在 <code>uint8</code> 上 gather，取到 4 个字节后再转 float</td>
+        <td>省掉 <code>cvt_in</code> 整趟（−5.3 ms）+ 输入工作集 84→21 MiB</td>
+        <td class="num">≈ −5 ms</td>
+        <td>CPU 的 <code>vpgatherdd</code> 无法 gather 字节（只有 <code>vpgatherdd</code> 32-bit），
+            需退化为标量取字节 → 反而更慢。<b>这条只对 GPU 有意义</b></td></tr>
+    <tr><td><span class="badge b-warn">P2</span></td>
+        <td>把 <code>precomputeIndices</code> 的产物离线落盘（预转置 + 预 SoA）</td>
+        <td>冷启动 3.82 s → &lt; 0.6 s</td>
+        <td class="num">不变</td>
+        <td>需要一次性的矩阵生成工具；表体积仍是 640 MiB</td></tr>
+    <tr><td><span class="badge b-warn">P2</span></td>
+        <td>C# 侧零拷贝（<code>Mat.DataPointer</code> + 复用输出缓冲）</td>
+        <td>−4～6 ms/帧，去掉 Gen2 GC 压力</td>
+        <td class="num">e2e −4～6 ms</td>
+        <td>需要保证 <code>Mat</code> 生命周期覆盖 native 调用（已在 <code>using</code> 内则可）</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+<b>把上述 P0+P1 全部做完的合成估计：</b>
+<code>63.82</code> − 13.47（扫描）− 4（融合）− 5.5（quantize） = <b>40.9 ms</b> 单线程；
+再叠加多线程 gather+quant 的 1.78× → <b>约 22–24 ms</b>。
+这基本就是「不改算法结构、纯 CPU」的天花板。
+要到 1 ms 量级必须上 GPU（UNDIST-002 已实测 <b>0.9765 ms</b>）。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s9">9. 结论与后续</h2>
+
+<div class="card">
+<ol style="margin:0">
+  <li><b>算法已彻底梳理清楚</b>：预计算 4-tap 双线性 LUT 重映射，
+      语义包括「U/V 只存整数、权重全在 A、tap 几何固定为 2×2、
+      越界全有或全无、clamp→+0.5→trunc、FMA 链」六个要点，
+      已用复刻实现（0 差异 / 838.86 MPix）与 NumPy 独立实现（6.03×10⁻⁶）双向锁定。</li>
+  <li><b>流程已跑通且产物可信</b>：40 张 5120×4096 → <code>demo/output0</code>，
+      几何正确、锐度正常、黑边比例 1.6728% 与语义一致。</li>
+  <li><b>Release 性能基线</b>：<code>infer</code> 63.82 ms（中位 64.63，p90 66.68，σ 3.05），
+      端到端 103.06 ms，324.5 MPix/s / 15.5 fps。
+      <b>端到端里 38.1%（39.24 ms）与算法无关</b>，其中 ~32 ms 是 BMP 编解码纯搬运 ——
+      这是"用磁盘 BMP 模拟相机"的脚手架代价，不是产线基线（见 §6.2.1）。</li>
+  <li><b>CPU 侧的三个确定收益点</b>：去掉调试扫描（−21.1%）、
+      quantize 向量化（−8.5%）、融合 gather+quant（−4 ms），
+      合计可到 ~41 ms 单线程 / ~23 ms 多线程。</li>
+  <li><b>CPU 没有数量级空间</b>：<code>vpgatherdd</code> 每周期 1 元素的硬限制，
+      20 核只有 1.81× 加速。要 1 ms 量级必须走 GPU。</li>
+  <li><b>加速比取决于"要不要搬图"，不取决于 kernel</b>：同一条 0.92 ms 的 GPU kernel，
+      放进"读 BMP→算→写 BMP"的链路只值 <b>2.5×</b>（Amdahl 天花板 2.63×）；
+      放在"内存直传"值 <b>24.9×</b>；放在"图像不出显存"值 <b>69.4×</b>。
+      <b>落地第一步应是挪动节点位置，而不是调 kernel。</b></li>
+  <li><b>工程债已清一项</b>（见 §2.4）：<code>CPPAPP/</code> 已整目录删除
+      （27 文件 / 274 KB），唯一有价值的 <code>Undistortion_raw.cpp</code> 归档到
+      <code>reference/</code>；重建 3 目标成功、回归 0 差异。
+      其余未处理：陈旧路径配置、980 MiB 死内存、<code>noexcept</code> 里 throw、
+      <code>__FMA__</code> 强制定义导致运行时检测被绕过、C# 每帧 2 次 21 MB 托管拷贝。</li>
+</ol>
+</div>
+
+<h3>后续动作建议</h3>
+<table>
+  <thead><tr><th>#</th><th>动作</th><th>负责层</th><th>验收标准</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>落地 P0 两项（去扫描 / 释放死内存）</td><td>C++ 库</td>
+        <td><code>infer</code> ≤ 51 ms；进程 RSS &lt; 900 MiB；产物与本文 40 张图逐字节一致</td></tr>
+    <tr><td>2</td><td>落地 P1（quantize 重写 / 融合 / 多线程）</td><td>C++ 库</td>
+        <td><code>infer</code> ≤ 25 ms（16 线程）；产物一致</td></tr>
+    <tr><td>3</td><td><span class="badge b-ok">✅ 已完成</span> 删除 <code>CPPAPP/</code>、归档 <code>reference/</code></td>
+        <td>仓库</td><td>单工程可构建；产物 0 差异</td></tr>
+    <tr><td>4</td><td>清理剩余工程债 P1/P7/P9</td><td>仓库</td>
+        <td>单一 <code>.vscode</code> 配置、文档统一 UTF-8、离线预打包矩阵</td></tr>
+    <tr><td>5</td><td><b>先定架构形态，再谈 kernel</b>：把去畸变节点挪到
+        "图像不进解码器、不出显存"的位置</td><td>流水线</td>
+        <td>消除 22.7 + 15.4 ms 的 BMP I/O 与 1.64 ms 的 PCIe 往返；
+            端到端加速比从 2.5× 提升到 ≥ 24.9×</td></tr>
+    <tr><td>6</td><td>启动 TRT 化（见 UNDIST-002）</td><td>新节点</td>
+        <td>单图 kernel ≤ 1.1 ms；与 C++ 产物差异比率 ≤ 1×10⁻⁵、最大差 ≤ 1</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s10">10. 附录：数据文件与复现命令</h2>
+
+<h3>10.1 原始测量数据（均在 <code>document/data/</code>）</h3>
+<table>
+  <thead><tr><th>文件</th><th>内容</th></tr></thead>
+  <tbody>
+    <tr><td><code>release_bench.json</code></td>
+        <td>§6 的全部统计量（production + replica + MT 扫描 + meta）</td></tr>
+    <tr><td><code>release_bench_per_image.csv</code></td>
+        <td>40 张图的逐图原始耗时（16 列，含 diff / FMA 敏感性列）</td></tr>
+    <tr><td><code>release_bench_logging_info.json</code></td>
+        <td>§6.7 的 INFO 日志开销样本</td></tr>
+    <tr><td><code>reference_check.json</code></td>
+        <td>NumPy 独立实现的比对结果与权重统计</td></tr>
+    <tr><td><code>layout_check.json</code></td>
+        <td>矩阵内存布局 4 种解释的判别数据（§3.2）</td></tr>
+    <tr><td><code>io_decompose.json</code></td>
+        <td>§6.2.1 的 I/O 拆解（纯读 / 解码 / 编码 / 写 各自的 p50）</td></tr>
+    <tr><td><code>map_stats.json</code></td>
+        <td>映射位移分布 / du/dx / dv/dy 统计（§3.1）</td></tr>
+    <tr><td><code>weight_recon.json</code></td>
+        <td>tap 几何零违例证明 + 权重可压缩性（12 B/px 依据）</td></tr>
+    <tr><td><code>separable_check.json</code></td>
+        <td>映射可分离性检验（结论：<b>不可</b>完全分离，跨行 u 偏差达 11 px）</td></tr>
+    <tr><td><code>preview/*.png</code></td>
+        <td>§4.4 的对比图</td></tr>
+    <tr><td><code>trt_bench_final.json</code> 等</td>
+        <td>TRT 原型数据，见 UNDIST-002</td></tr>
+  </tbody>
+</table>
+
+<h3>10.2 脚本（均在 <code>tools/</code>）</h3>
+<table>
+  <thead><tr><th>脚本</th><th>用途</th></tr></thead>
+  <tbody>
+    <tr><td><code>build_release.bat</code></td><td>一键 Release 构建（含 NO_PROXY 规避、vcvars、CMake 配置）</td></tr>
+    <tr><td><code>reference_check.py</code></td><td>NumPy 独立参考实现 + 一致性比对</td></tr>
+    <tr><td><code>io_decompose.py</code></td>
+        <td>拆解 read/write 里的「BMP 编解码 vs 读盘落盘」比例（§6.2.1）</td></tr>
+    <tr><td><code>layout_check.py</code></td><td>判定 .bin 内存布局与 (W,H) 语义</td></tr>
+    <tr><td><code>map_probe.py</code> / <code>map_stats.py</code></td><td>映射场结构与位移统计</td></tr>
+    <tr><td><code>weight_recon.py</code></td><td>tap 几何与权重重构可行性</td></tr>
+    <tr><td><code>separable_check.py</code></td><td>映射可分离性检验</td></tr>
+    <tr><td><code>make_preview.py</code></td><td>生成对比缩略图</td></tr>
+    <tr><td><code>env_probe.py</code></td><td>环境探测（CPU/GPU/TRT/torch 版本）</td></tr>
+    <tr><td><code>trt_undistort.py</code> / <code>trt_bench_final.py</code> / <code>trt_debug*.py</code></td>
+        <td>TRT 原型（见 UNDIST-002）</td></tr>
+  </tbody>
+</table>
+
+<h3>10.3 完整复现步骤</h3>
+<pre><span class="c">:: 0) 环境</span>
+set PATH=E:\3rdparty\opencv\build\x64\vc16\bin;%PATH%
+
+<span class="c">:: 1) 构建 Release（生成 Undistortion.dll / test_undistortion.exe / bench_undistortion.exe）</span>
+cd Algorithms\undistortion_standaloneV0
+tools\build_release.bat
+
+<span class="c">:: 2) 跑通流程 + 全量耗时统计（产物写入 demo\output0）</span>
+CAPP\build\bin\bench_undistortion.exe --mode both --reps 8 --warmup 2 ^
+    --json document\data\release_bench.json ^
+    --csv  document\data\release_bench_per_image.csv
+
+<span class="c">:: 3) 一致性交叉验证</span>
+python tools\reference_check.py --images 3
+
+<span class="c">:: 4) 映射/权重结构分析</span>
+python tools\layout_check.py
+python tools\map_stats.py
+python tools\weight_recon.py
+python tools\separable_check.py
+
+<span class="c">:: 5) 对比图</span>
+python tools\make_preview.py</pre>
+
+<hr>
+<p class="small">
+文档版本 1.0 ｜ 生成日期 2026-10-26 ｜ 数据来源：本机 Release 实测（见 <code>document/data/</code>）<br>
+配套文档：<b>UNDIST-002-去畸变TRT化与CSharp封装_新方案分析设计与性能预估_20261026.html</b><br>
+本文所有数字均为实测或由实测显式推算；凡推算处均在该处标注「推算」。
+</p>
+
+</div>
+</body>
+</html>

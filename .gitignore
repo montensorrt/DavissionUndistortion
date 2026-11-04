@@ -1,0 +1,75 @@
+# ===================================================================
+# DavissionUndistortion —— cpu-v0 分支（CPU 版本 / StandaloneV0）
+#
+# 本仓库是 Algorithms\undistortion_standaloneV0 的白名单快照。
+# 本文件不是“过滤本次上传”（那是白名单的事），而是防止将来有人把完整工程目录
+# 放进仓库后 `git add .` 把数据/产物/凭据带进来。
+#
+# 详见 UPLOAD_RULES.md。
+# ===================================================================
+
+# ---------- 规则 1：屏蔽路径 ----------
+.git/
+.vscode/
+.vs/
+build/
+out/
+bin/
+obj/
+__pycache__/
+*.py[cod]
+node_modules/
+.mimocode/
+.zcode/
+.tmp_strip/
+
+# ---------- 数据资产（体积大，按需自备） ----------
+botong25/
+demo/
+document/data/
+CSharpApp/ReferenceDLL/
+
+# ---------- 构建 / 打包 / 运行时产物 ----------
+*.user
+*.suo
+*.exe
+*.dll
+*.pdb
+*.lib
+*.exp
+*.obj
+*.ilk
+*.zip
+*.7z
+*.log
+*.tmp
+*.cache
+*.lscache
+*.bak
+nul
+
+# ---------- 标注 / 结果产物 ----------
+*_mask.png
+*_mask.json
+*_mask.bak.png
+output*/
+
+# ---------- 凭据红线 ----------
+github/
+*access-token*
+*access_token*
+*credential*
+*.pem
+*.key
+*.ppk
+id_rsa*
+id_ed25519*
+.env
+.env.*
+
+# ---------- 编辑器 / 系统杂项 ----------
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store
+*~

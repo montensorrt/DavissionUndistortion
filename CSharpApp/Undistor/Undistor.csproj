@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>UndistortionApp</AssemblyName>
+    <RootNamespace>Undistor.NativeAPI</RootNamespace>
+    <StartupObject>Undistor.NativeAPI.UndistortionRunner</StartupObject>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <PlatformTarget>x64</PlatformTarget>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <PlatformTarget>x64</PlatformTarget>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenCvSharp4" Version="4.8.0.20230708" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.8.0.20230708" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\CAPP\build\Undistortion.vcxproj" />
+  </ItemGroup>
+
+	<!-- 放在 </Project> 之前 -->
+	<ItemGroup>
+		<!-- 从 deploy_v5.1/out/build/$(Configuration) 复制 AOI_Native*.dll 到输出目录 -->
+		<NativeDll Include="..\..\CAPP\build\bin\Undistortion*.dll" />
+		<None Include="@(NativeDll)">
+			<Link>%(Filename)%(Extension)</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+	<ItemGroup>
+		<!-- 只处理 ReferenceDLL 目录下的 *.dll -->
+		<_RefDll Include="..\ReferenceDLL\*.dll" />
+		<Reference Include="@(_RefDll -> '%(Filename)')">
+			<HintPath>%(Identity)</HintPath>
+			<Private>true</Private>
+		</Reference>
+		<!-- ✅ 添加这一行：确保 DLL 被拷贝到输出目录 -->
+		<None Include="@(_RefDll)">
+			<Link>%(Filename)%(Extension)</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+</Project>

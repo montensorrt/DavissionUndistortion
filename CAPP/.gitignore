@@ -1,0 +1,37 @@
+# Build directories
+build/
+out/
+bin/
+
+# IDE files
+.vs/
+.vscode/
+*.vcxproj.*
+*.sln
+CMakeSettings.json
+
+# Temporary files
+*.log
+*.tmp
+nul
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Executables and outputs
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Documentation (exclude large files)
+*.md
+document/
+
+# Test output files
+undistortion_test_*.log
+
+# Cache and temp
+*.cache
+*.bak

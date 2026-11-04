@@ -1,0 +1,6 @@
+基于CAPP路径项目帮我梳理include下的头文件Undistortion_C_API.h和Undistortion.h和src路径下的Undistortion_C_API.cpp和Undistortion.cpp源文件，中c接口文件和源文件的逻辑和接口以及函数签名是否完全一致护着匹配，CMakeLists.txt目前的逻辑是编译exe执行测试的程序，请帮我生成一个新的CMakeLists.txt文件用于编译生成一个共享库，库名为Undistortion，包含所有的头文件和源文件,要包含c_api的所有头文件和源文件，编译为库后，后续会基于p/invok使用c#进行调用，先帮我修改CMakeLists.txt文件内容。
+要求：风格要保持一致，尽可能精简，防止冗余，全程使用中文回答
+
+
+目前的项目中使用了大量的opencv的接口和代码，由于opencv默认是多线程的逻辑，如果我想实现一个开发可以设置禁用多线程优化，只使用单线程的功能，是应该在新的CMakeLists.txt文件中添加相关的编译选项和宏定义，确保生成的共享库在调用opencv接口时是单线程模式运行。还是应该在.h和cpp中实现设置，帮我查找opencv官网文档，帮我分析和回答这个问题，给出具体的实现方案和建议。
+要求：全程使用中文回答
